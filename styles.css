@@ -945,6 +945,15 @@ dialog li + li {
     gap: 0;
   }
 
+  .map-toolbar {
+    gap: 5px;
+  }
+
+  .map-toolbar .tool-button {
+    width: 36px;
+    height: 36px;
+  }
+
   .map-dock {
     right: 8px;
     bottom: 20px;
@@ -972,4 +981,18 @@ dialog li + li {
 
 .form-grid input[aria-invalid="true"] {
   border-color: #b42620;
+}
+
+.map-area.is-expanded {
+  height: max(560px, 82svh);
+}
+
+.tool-button[aria-pressed="true"] {
+  color: var(--accent-dark);
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.strava-export {
+  margin: 0 14px 14px;
 }

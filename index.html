@@ -6,7 +6,7 @@
     <title>Fake Strava - Planejador de rotas</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="styles.css?v=4" />
+    <link rel="stylesheet" href="styles.css?v=5" />
   </head>
   <body>
     <header class="topbar">
@@ -48,6 +48,12 @@
           <button class="tool-button" id="locateButton" type="button" title="Ir para minha localização" aria-label="Ir para minha localização">
             <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v4"/><path d="M12 18v4"/><path d="M2 12h4"/><path d="M18 12h4"/><circle cx="12" cy="12" r="8"/></svg>
           </button>
+          <button class="tool-button" id="drawOnMap" type="button" title="Desenho livre" aria-label="Desenho livre" aria-pressed="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 5 4 4"/><path d="M4 20 8 19l10.5-10.5a2.8 2.8 0 0 0-4-4L4 15z"/></svg>
+          </button>
+          <button class="tool-button" id="resizeMap" type="button" title="Ampliar mapa" aria-label="Ampliar mapa" aria-pressed="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4H4v5m11-5h5v5M4 15v5h5m6 0h5v-5"/><path d="m8 8 8 8m0-8-8 8"/></svg>
+          </button>
         </div>
 
         <div id="routeMap" class="route-map" role="application" aria-label="Mapa: clique para adicionar pontos"></div>
@@ -76,11 +82,11 @@
         <section class="panel-section">
           <h2>Como desenhar</h2>
           <div class="segmented" role="group" aria-label="Modo de desenho">
-            <button type="button" class="active" data-mode="click">
+            <button type="button" class="active" data-mode="click" aria-pressed="true">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-6-5.3-6-10a6 6 0 1 1 12 0c0 4.7-6 10-6 10z"/><circle cx="12" cy="11" r="2"/></svg>
               Clicar pontos
             </button>
-            <button type="button" data-mode="free">
+            <button type="button" data-mode="free" aria-pressed="false">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 5 4 4"/><path d="M4 20 8 19l10.5-10.5a2.8 2.8 0 0 0-4-4L4 15z"/></svg>
               Desenho livre
             </button>
@@ -119,43 +125,52 @@
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.7 5.8 6.3.8-4.6 4.4 1.2 6.3L12 17.2 6.4 20.3l1.2-6.3L3 9.6l6.3-.8z"/></svg>
               Estrela
             </button>
+            <button type="button" class="mode-card" data-shape="triangle">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4 21 20H3Z"/></svg>
+              Triângulo
+            </button>
+            <button type="button" class="mode-card" data-shape="square">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14v14H5Z"/></svg>
+              Quadrado
+            </button>
+            <button type="button" class="mode-card" data-shape="diamond">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 9 9-9 9-9-9z"/></svg>
+              Losango
+            </button>
+            <button type="button" class="mode-card" data-shape="hexagon">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h10l5 8-5 8H7l-5-8z"/></svg>
+              Hexágono
+            </button>
+            <button type="button" class="mode-card" data-shape="arrow">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 9 9h-5v9H8v-9H3z"/></svg>
+              Seta
+            </button>
+            <button type="button" class="mode-card" data-shape="lightning">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m13 3-8 11h6l-1 7 9-12h-6z"/></svg>
+              Raio
+            </button>
           </div>
+          <form id="routeTextForm" class="form-grid route-details" aria-describedby="routeTextHint">
+            <label class="full-span">Texto no mapa
+              <input id="routeText" required maxlength="16" placeholder="Ex.: MATEUS" autocomplete="off" />
+            </label>
+            <button class="primary-outline full-span" id="writeRoute" type="submit">Traçar texto</button>
+          </form>
+          <p class="fine-print" id="routeTextHint">Até 16 letras, números ou espaços. O traçado liga os caracteres em uma única rota.</p>
         </section>
 
         <section class="panel-section" id="simulateActivity">
           <h2>Simular atividade</h2>
           <div class="form-grid" aria-describedby="simulationHint">
             <label class="full-span">Tipo de atividade
-              <select id="activity">
-                <optgroup label="A pé">
-                  <option value="run">Corrida</option>
-                  <option value="trail">Corrida em trilha</option>
-                  <option value="walk">Caminhada</option>
-                  <option value="hike">Trilha a pé</option>
-                </optgroup>
-                <optgroup label="Pedal">
-                  <option value="ride">Pedal de estrada</option>
-                  <option value="gravel">Gravel</option>
-                  <option value="mtb">Mountain bike</option>
-                  <option value="ebike">Bicicleta elétrica</option>
-                </optgroup>
-                <optgroup label="Na água">
-                  <option value="swim">Natação em águas abertas</option>
-                  <option value="kayak">Caiaque</option>
-                  <option value="row">Remo</option>
-                  <option value="sup">Stand up paddle</option>
-                </optgroup>
-                <optgroup label="Outros">
-                  <option value="skate">Patinação</option>
-                  <option value="wheelchair">Cadeira de rodas</option>
-                  <option value="indoorRun">Corrida em esteira</option>
-                  <option value="indoorRide">Ciclismo indoor</option>
-                </optgroup>
-              </select>
+              <select id="activity"></select>
+            </label>
+            <label class="full-span" id="customActivityField" hidden>Nome da atividade
+              <input id="customActivity" maxlength="60" placeholder="Ex.: Home office" />
             </label>
             <label>Distância (km)<input id="simulationDistance" inputmode="decimal" maxlength="12" /></label>
             <label>Ganho de elevação (m)<input id="simulationGain" inputmode="decimal" maxlength="12" /></label>
-            <label><span id="paceLabel">Ritmo (min/km)</span><input id="paceInput" inputmode="decimal" maxlength="12" /></label>
+            <label id="paceField"><span id="paceLabel">Ritmo (min/km)</span><input id="paceInput" inputmode="decimal" maxlength="12" /></label>
             <label>Tempo em movimento<input id="timeInput" maxlength="12" placeholder="h:mm:ss" /></label>
             <label>Calorias (kcal)<input id="simulationCalories" inputmode="decimal" maxlength="12" /></label>
             <label>FC média (bpm)<input id="simulationHeartRate" inputmode="decimal" maxlength="12" /></label>
@@ -169,6 +184,7 @@
 
         <section class="panel-section">
           <h2>Resumo da simulação</h2>
+          <p class="fine-print" id="activitySummary"></p>
           <div class="stats-grid">
             <div><span>Distância</span><strong id="distanceStat">—</strong></div>
             <div><span>Tempo em movimento</span><strong id="durationStat">—</strong></div>
@@ -197,7 +213,10 @@
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
           Baixar rota GPX
         </button>
-        <p class="fine-print bottom">Para usar a rota no Strava, baixe o GPX e selecione o arquivo no <a href="https://www.strava.com/maps/create" target="_blank" rel="noopener">criador de rotas do Strava</a>.</p>
+        <div class="strava-export">
+          <button class="text-button" id="stravaRoutes" type="button" disabled>Baixar GPX e abrir Strava Web</button>
+          <p class="fine-print">No criador de rotas do Strava, selecione o GPX baixado.</p>
+        </div>
       </aside>
 
       <section class="charts-row" aria-label="Perfil de elevação">
@@ -240,6 +259,7 @@
     </dialog>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="script.js?v=3"></script>
+    <script src="route-design.js"></script>
+    <script src="script.js?v=4"></script>
   </body>
 </html>

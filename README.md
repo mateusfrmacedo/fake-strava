@@ -20,7 +20,7 @@ Planejador de rotas e simulador de atividades no navegador. Você desenha o perc
 **Criar automaticamente**
 
 - Gerar circuito: escolha a distância e o app monta uma volta que sai e chega no mesmo ponto. Clicar de novo gera outra opção.
-- Formas prontas (coração, círculo e estrela) no tamanho da distância escolhida.
+- Formas prontas e texto em traço contínuo, na distância escolhida. Letras e números ficam conectados. As formas e o texto desativam “Seguir ruas” ao serem gerados para preservar o desenho.
 
 **Informações da rota**
 
@@ -33,7 +33,7 @@ Planejador de rotas e simulador de atividades no navegador. Você desenha o perc
 - Use a distância e o ganho de elevação do mapa ou preencha esses valores manualmente. Também é possível simular sem traçar uma rota.
 - Edite o ritmo ou a velocidade, o tempo em movimento, as calorias, a frequência cardíaca média e a data. Alterar o ritmo recalcula o tempo em movimento, e informar o tempo recalcula o ritmo médio.
 - Os campos vazios usam valores automáticos quando houver dados suficientes. As calorias são estimadas com base no peso e na atividade. A frequência cardíaca automática é um valor simulado.
-- Escolha entre atividades a pé, ciclismo, esportes aquáticos, patinação, cadeira de rodas e modalidades indoor. Na natação, o ritmo é exibido em min/100 m.
+- Escolha entre modalidades a pé, aquáticas, coletivas, de raquete, de inverno, de ciclismo, de força e de dança, ou escreva um nome personalizado. Na natação, o ritmo é exibido em min/100 m.
 - Use “Limpar ajustes da simulação” para voltar aos valores automáticos.
 
 **Outros recursos**
@@ -46,7 +46,7 @@ Planejador de rotas e simulador de atividades no navegador. Você desenha o perc
 
 O botão "Baixar rota GPX" gera uma rota planejada: o traçado e a altimetria de cada ponto. O arquivo não contém horários, ritmo nem frequência cardíaca, porque representa um percurso a ser feito, não uma atividade realizada. As métricas simuladas aparecem no resumo da página.
 
-O GPX pode ser importado como rota ou percurso em aplicativos e relógios que aceitam esse formato.
+O GPX pode ser importado como rota ou percurso em aplicativos e relógios que aceitam esse formato. O botão “Baixar GPX e abrir Strava Web” baixa o arquivo e abre o criador de rotas, onde você pode selecioná-lo. O nome personalizado fica registrado no GPX.
 
 ## Como usar
 
@@ -78,7 +78,8 @@ Os dados de mapa são © colaboradores do OpenStreetMap.
 ```
 index.html   estrutura da página
 styles.css   aparência
-script.js    mapa, edição da rota, roteamento, altimetria e exportação
+script.js       mapa, simulação, roteamento, altimetria e exportação
+route-design.js formas geométricas e letras para rotas desenhadas
 favicon.svg           ícone
 logo-fake-strava.webp logo do cabeçalho
 ```

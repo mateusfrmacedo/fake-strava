@@ -37,6 +37,56 @@ const ACTIVITIES = {
   indoorRide: { gpxType: "indoor cycling", label: SPEED_LABEL, kind: "speed", fallback: "22", met: 7 },
 };
 
+const ACTIVITY_GROUPS = {
+  "A pé": { run: "Corrida", trail: "Corrida em trilha", walk: "Caminhada", hike: "Trilha a pé", indoorRun: "Corrida em esteira", nordicWalk: "Caminhada nórdica", stairs: "Subida de escadas" },
+  "Ciclismo": { ride: "Pedal de estrada", gravel: "Gravel", mtb: "Mountain bike", ebike: "Bicicleta elétrica", indoorRide: "Ciclismo indoor", emtb: "Mountain bike elétrica", handcycle: "Handbike", velomobile: "Velomóvel", trackBike: "Ciclismo de pista", bmx: "BMX" },
+  "Aquáticos": { swim: "Natação em águas abertas", pool: "Natação em piscina", kayak: "Caiaque", row: "Remo", sup: "Stand up paddle", canoe: "Canoagem", surf: "Surfe", sail: "Vela", windsurf: "Windsurfe", kitesurf: "Kitesurfe", waterPolo: "Polo aquático", indoorRow: "Remo indoor" },
+  "Coletivos": { soccer: "Futebol", futsal: "Futsal", basketball: "Basquete", volleyball: "Vôlei", handball: "Handebol", rugby: "Rúgbi", baseball: "Beisebol", cricket: "Críquete", hockey: "Hóquei" },
+  "Raquete": { tennis: "Tênis", tableTennis: "Tênis de mesa", badminton: "Badminton", padel: "Padel", pickleball: "Pickleball", squash: "Squash", racquetball: "Racquetball", beachTennis: "Beach tennis" },
+  "Inverno": { alpineSki: "Esqui alpino", nordicSki: "Esqui de fundo", backcountrySki: "Esqui de montanha", snowboard: "Snowboard", iceSkate: "Patinação no gelo", snowshoe: "Caminhada com raquetes de neve", rollerSki: "Roller ski" },
+  "Força e treino": { strength: "Musculação", crossfit: "CrossFit", hiit: "HIIT", workout: "Treino funcional", elliptical: "Elíptico", yoga: "Yoga", pilates: "Pilates", climbing: "Escalada", martialArts: "Artes marciais", boxing: "Boxe" },
+  "Dança e outras": { dance: "Dança", skate: "Patinação", skateboard: "Skate", wheelchair: "Cadeira de rodas", golf: "Golfe", therapy: "Fisioterapia", custom: "Personalizada" },
+};
+
+const DISTANCE_SPORTS = {
+  nordicWalk: { ...ACTIVITIES.walk, gpxType: "nordic walking" },
+  handcycle: { ...ACTIVITIES.ride, fallback: "18", gpxType: "handcycle", met: 6 },
+  velomobile: { ...ACTIVITIES.ride, fallback: "32", gpxType: "velomobile", met: 8 },
+  trackBike: { ...ACTIVITIES.indoorRide, fallback: "32", gpxType: "track cycling" },
+  emtb: { ...ACTIVITIES.ebike, fallback: "17", gpxType: "electric mountain biking" },
+  pool: { ...ACTIVITIES.swim, gpxType: "pool swimming" },
+  canoe: { ...ACTIVITIES.kayak, gpxType: "canoeing" },
+  sail: { ...ACTIVITIES.kayak, fallback: "12", gpxType: "sailing", met: 3 },
+  windsurf: { ...ACTIVITIES.row, fallback: "18", gpxType: "windsurfing" },
+  kitesurf: { ...ACTIVITIES.row, fallback: "22", gpxType: "kitesurfing" },
+  indoorRow: { ...ACTIVITIES.row, gpxType: "indoor rowing" },
+  alpineSki: { ...ACTIVITIES.row, fallback: "28", gpxType: "alpine skiing" },
+  nordicSki: { ...ACTIVITIES.row, fallback: "10", gpxType: "nordic skiing" },
+  backcountrySki: { ...ACTIVITIES.row, fallback: "9", gpxType: "backcountry skiing" },
+  snowboard: { ...ACTIVITIES.row, fallback: "25", gpxType: "snowboarding" },
+  iceSkate: { ...ACTIVITIES.row, fallback: "12", gpxType: "ice skating" },
+  snowshoe: { ...ACTIVITIES.hike, profile: undefined, gpxType: "snowshoeing" },
+  rollerSki: { ...ACTIVITIES.skate, gpxType: "roller skiing" },
+  skateboard: { ...ACTIVITIES.skate, fallback: "12", gpxType: "skateboarding" },
+};
+
+const TIMED_SPORTS = {
+  stairs: ["stair stepper", 8], bmx: ["BMX", 8], surf: ["surfing", 4], waterPolo: ["water polo", 8],
+  soccer: ["soccer", 7], futsal: ["futsal", 7], basketball: ["basketball", 6], volleyball: ["volleyball", 4],
+  handball: ["handball", 8], rugby: ["rugby", 8], baseball: ["baseball", 5], cricket: ["cricket", 5], hockey: ["hockey", 8],
+  tennis: ["tennis", 7], tableTennis: ["table tennis", 4], badminton: ["badminton", 5], padel: ["padel", 6],
+  pickleball: ["pickleball", 5], squash: ["squash", 9], racquetball: ["racquetball", 7], beachTennis: ["beach tennis", 6],
+  strength: ["weight training", 4], crossfit: ["crossfit", 8], hiit: ["HIIT", 8], workout: ["workout", 5],
+  elliptical: ["elliptical", 5], yoga: ["yoga", 3], pilates: ["pilates", 3], climbing: ["rock climbing", 7],
+  martialArts: ["martial arts", 7], boxing: ["boxing", 8], dance: ["dance", 5], golf: ["golf", 4],
+  therapy: ["physical therapy", 3], custom: ["custom", 0],
+};
+
+Object.assign(ACTIVITIES, DISTANCE_SPORTS);
+for (const [key, [gpxType, met]] of Object.entries(TIMED_SPORTS)) {
+  ACTIVITIES[key] = { gpxType: gpxType.toLowerCase(), met, kind: "time", fallback: "" };
+}
+
 const els = {
   map: $("#routeMap"),
   status: $("#statusText"),
@@ -49,6 +99,7 @@ const els = {
   autoLoop: $("#autoLoop"),
   routeName: $("#routeName"),
   activity: $("#activity"),
+  customActivity: $("#customActivity"),
   pace: $("#paceInput"),
   time: $("#timeInput"),
   weight: $("#weightInput"),
@@ -238,6 +289,7 @@ function readPace(text) {
 }
 
 function secondsPerKm() {
+  if (activityConfig().kind === "time") return 0;
   return readPace(paceByActivity[els.activity.value]) || readPace(activityConfig().fallback);
 }
 
@@ -281,6 +333,7 @@ function estimateCalories(km, seconds, gain) {
   if (config.kcalPerKgKm) {
     return km > 0 ? kg * (km * config.kcalPerKgKm + (gain || 0) * 0.0094) : null;
   }
+  if (config.kind === "time") return config.met ? config.met * kg * seconds / 3600 : null;
   const speed = km / (seconds / 3600);
   const met = config.met || (speed < 16 ? 4 : speed < 19 ? 6.8 : speed < 22.5 ? 8 : speed < 25.5 ? 10 : speed < 30.5 ? 12 : 15.8);
   return met * kg * seconds / 3600;
@@ -302,12 +355,12 @@ function renderSimulation(totals = elevationTotals()) {
   const manualTime = readSimulationField(els.time, parseClock);
   const basePace = secondsPerKm();
   const ascentTime = climbSeconds(gain);
-  const automaticTime = distance > 0 ? distance * basePace + ascentTime : null;
+  const automaticTime = distance > 0 && basePace > 0 ? distance * basePace + ascentTime : null;
   const seconds = manualTime ?? automaticTime;
-  const average = distance > 0 && seconds > 0 ? seconds / distance : null;
+  const average = activity.kind !== "time" && distance > 0 && seconds > 0 ? seconds / distance : null;
   const automaticCalories = estimateCalories(distance, seconds, gain);
   const calories = readSimulationField(simulationFields.calories, readNumber) ?? automaticCalories;
-  const automaticHeartRate = seconds > 0 ? (activity.heartRate || (activity.kind === "speed" ? 135 : 150)) : null;
+  const automaticHeartRate = seconds > 0 && activity.kind !== "time" ? (activity.heartRate || (activity.kind === "speed" ? 135 : 150)) : null;
   const heartRate = readSimulationField(simulationFields.heartRate, readNumber) ?? automaticHeartRate;
   const date = simulationFields.date.value;
 
@@ -317,10 +370,12 @@ function renderSimulation(totals = elevationTotals()) {
   simulationFields.heartRate.placeholder = automaticHeartRate === null ? "Automático" : String(automaticHeartRate);
   els.time.placeholder = automaticTime === null ? "h:mm:ss" : formatClock(automaticTime);
   els.pace.placeholder = manualTime && average ? formatPaceInput(average).replace(".", ",") : activity.fallback;
-  els.paceLabel.textContent = !manualTime && els.climb.checked ? `${activity.label} · base` : activity.label;
+  els.paceLabel.textContent = !manualTime && activity.climb && els.climb.checked ? `${activity.label} · base` : activity.label || PACE_LABEL;
   $("#distanceStat").textContent = manualDistance !== null || routeKm > 0 ? formatDistance(distance * 1000) : "—";
   $("#durationStat").textContent = seconds === null ? "—" : formatClock(seconds);
   $("#gainStat").textContent = gain === null ? "—" : `${Math.round(gain)} m`;
+  $("#avgStat").parentElement.hidden = activity.kind === "time";
+  $("#activitySummary").textContent = activityName();
   $("#avgLabel").textContent = activity.kind === "speed" ? "Velocidade média" : "Ritmo médio";
   $("#avgStat").textContent = average ? formatAverage(average) : "—";
   $("#kcalStat").textContent = calories === null ? "—" : `${Math.round(calories)} kcal`;
@@ -367,7 +422,7 @@ function renderSplits(perKm) {
       : `${i + 1}`;
     rows.push(`<tr><td>${label}</td><td>${gain === null ? "\u2014" : `+${Math.round(gain)} m`}</td><td>${
       loss === null ? "\u2014" : `\u2212${Math.round(loss)} m`
-    }</td><td>${formatDuration(seconds)}</td></tr>`);
+    }</td><td>${seconds > 0 ? formatDuration(seconds) : "—"}</td></tr>`);
   }
   body.innerHTML = rows.join("");
 }
@@ -517,7 +572,7 @@ function refresh(light = false) {
 /* ---------- histórico e edição ---------- */
 
 function snapshot() {
-  return state.waypoints.map(copyPoint);
+  return { waypoints: state.waypoints.map(copyPoint), snap: els.snap.checked };
 }
 
 function pushHistory() {
@@ -542,14 +597,18 @@ function commit(mutate) {
 function undo() {
   if (!undoStack.length) return;
   redoStack.push(snapshot());
-  state.waypoints = undoStack.pop();
+  const previous = undoStack.pop();
+  state.waypoints = previous.waypoints;
+  els.snap.checked = previous.snap;
   afterChange();
 }
 
 function redo() {
   if (!redoStack.length) return;
   undoStack.push(snapshot());
-  state.waypoints = redoStack.pop();
+  const next = redoStack.pop();
+  state.waypoints = next.waypoints;
+  els.snap.checked = next.snap;
   afterChange();
 }
 
@@ -696,7 +755,13 @@ function fitRoute() {
 
 function setMode(mode) {
   state.mode = mode;
-  modeButtons.forEach((button) => button.classList.toggle("active", button.dataset.mode === mode));
+  modeButtons.forEach((button) => {
+    const selected = button.dataset.mode === mode;
+    button.classList.toggle("active", selected);
+    button.setAttribute("aria-pressed", selected);
+  });
+  $("#drawOnMap").setAttribute("aria-pressed", mode === "free");
+  els.map.setAttribute("aria-label", mode === "free" ? "Mapa: arraste para desenhar a rota" : "Mapa: clique para adicionar pontos");
   els.map.classList.toggle("freehand", mode === "free");
   if (mode === "free") map.dragging.disable();
   else map.dragging.enable();
@@ -704,12 +769,14 @@ function setMode(mode) {
 }
 
 function setupFreehand() {
+  let pointerId = null;
   let stroke = null;
   let lastPixel = null;
 
   els.map.addEventListener("pointerdown", (event) => {
-    if (state.mode !== "free" || event.button !== 0) return;
+    if (state.mode !== "free" || event.button !== 0 || !event.isPrimary) return;
     if (event.target.closest(".leaflet-marker-icon, .leaflet-control")) return;
+    pointerId = event.pointerId;
     stroke = [map.mouseEventToLatLng(event)];
     lastPixel = { x: event.clientX, y: event.clientY };
     els.map.setPointerCapture(event.pointerId);
@@ -718,25 +785,29 @@ function setupFreehand() {
   });
 
   els.map.addEventListener("pointermove", (event) => {
-    if (!stroke) return;
+    if (event.pointerId !== pointerId || !stroke) return;
     if (Math.hypot(event.clientX - lastPixel.x, event.clientY - lastPixel.y) < 4) return;
     lastPixel = { x: event.clientX, y: event.clientY };
     stroke.push(map.mouseEventToLatLng(event));
     sketchLine.setLatLngs(stroke);
   });
 
-  const finish = () => {
-    if (!stroke) return;
-    const drawn = stroke.map((p) => ({ lat: p.lat, lng: p.lng }));
+  const finish = (event) => {
+    if (event.pointerId !== pointerId || !stroke) return;
+    const drawn = stroke;
     stroke = null;
+    pointerId = null;
     sketchLine.setLatLngs([]);
+    if (event.type !== "pointerup" || state.mode !== "free" || drawn.length < 2) return;
     const metersPerPixel = (40_075_016 * Math.cos(toRad(map.getCenter().lat))) / (256 * 2 ** map.getZoom());
-    const points = simplifyToLimit(drawn, MAX_FREEHAND_POINTS, metersPerPixel * 8);
+    const points = simplifyToLimit(drawn, MAX_FREEHAND_POINTS, metersPerPixel * 5);
+    if (points.length < 2) return;
     commit(() => state.waypoints.push(...points));
-    if (points.length > 1) setStatus(`Traço convertido em ${points.length} pontos editáveis.`, "success");
+    setStatus(`Traço convertido em ${points.length} pontos editáveis.`, "success");
   };
   els.map.addEventListener("pointerup", finish);
   els.map.addEventListener("pointercancel", finish);
+  els.map.addEventListener("lostpointercapture", finish);
 }
 
 /* ---------- criação automática ---------- */
@@ -749,6 +820,7 @@ function targetMeters() {
 function setBusy(value) {
   busy = value;
   els.autoLoop.disabled = value;
+  $("#writeRoute").disabled = value;
   shapeButtons.forEach((button) => {
     button.disabled = value;
   });
@@ -809,6 +881,8 @@ async function generateLoop() {
 }
 
 function unitShape(kind) {
+  const polygon = ROUTE_POLYGONS[kind];
+  if (polygon) return [...polygon, polygon[0]];
   const points = [];
   if (kind === "heart") {
     for (let i = 0; i < 28; i += 1) {
@@ -834,22 +908,40 @@ function unitShape(kind) {
   return points;
 }
 
-function createShape(kind) {
+function createDesign(shape, message) {
   if (busy) return;
-  const shape = unitShape(kind);
-  let perimeter = 0;
+  let length = 0;
   for (let i = 1; i < shape.length; i += 1) {
-    perimeter += Math.hypot(shape[i][0] - shape[i - 1][0], shape[i][1] - shape[i - 1][1]);
+    length += Math.hypot(shape[i][0] - shape[i - 1][0], shape[i][1] - shape[i - 1][1]);
   }
-  const scale = targetMeters() / perimeter;
-  const midY = (Math.max(...shape.map((p) => p[1])) + Math.min(...shape.map((p) => p[1]))) / 2;
+  const target = targetMeters();
+  const scale = target / length;
+  const xs = shape.map(([x]) => x);
+  const ys = shape.map(([, y]) => y);
+  const midX = (Math.max(...xs) + Math.min(...xs)) / 2;
+  const midY = (Math.max(...ys) + Math.min(...ys)) / 2;
   const center = map.getCenter();
-  const points = shape.map(([x, y]) => offsetPoint(center, (y - midY) * scale, x * scale));
+  const project = (ratio) => shape.map(([x, y]) => offsetPoint(center, (y - midY) * ratio, (x - midX) * ratio));
+  const distance = pathLength(project(scale));
+  const points = project(scale * target / distance);
   commit(() => {
+    els.snap.checked = false;
     state.waypoints = points;
   });
   fitRoute();
-  if (followsStreets()) setStatus("Forma criada. Seguindo ruas, a distância final pode ficar maior que a desejada.", "loading");
+  setStatus(message, "success");
+}
+
+function writeRoute(event) {
+  event.preventDefault();
+  const input = $("#routeText");
+  const points = routeTextPoints(input.value);
+  if (!points.length) {
+    input.setCustomValidity("Use até 16 letras, números ou espaços.");
+    input.reportValidity();
+    return;
+  }
+  createDesign(points, "Texto traçado no mapa. As letras ficam ligadas na mesma rota.");
 }
 
 /* ---------- elevação ---------- */
@@ -1031,7 +1123,7 @@ function renderStats() {
   $("#maxElevStat").textContent = totals ? meters(totals.max) : "—";
   $("#minElevStat").textContent = totals ? meters(totals.min) : "—";
   $("#dockDistance").textContent = formatDistance(route.distance);
-  $("#dockTime").textContent = formatDuration(seconds);
+  $("#dockTime").textContent = seconds > 0 ? formatDuration(seconds) : "—";
   $("#dockGain").textContent = totals ? `subida ${meters(totals.gain)}` : "subida —";
 }
 
@@ -1044,10 +1136,27 @@ function updateButtons() {
   els.reverse.disabled = count < 2;
   els.clear.disabled = count === 0;
   els.download.disabled = route.coords.length < 2;
+  $("#stravaRoutes").disabled = els.download.disabled;
+}
+
+function populateActivities() {
+  for (const [label, options] of Object.entries(ACTIVITY_GROUPS)) {
+    const group = document.createElement("optgroup");
+    group.label = label;
+    for (const [value, name] of Object.entries(options)) group.append(new Option(name, value));
+    els.activity.append(group);
+  }
+}
+
+function activityName() {
+  const custom = els.activity.value === "custom" ? els.customActivity.value.trim() : "";
+  return custom || els.activity.selectedOptions[0]?.textContent || "Atividade";
 }
 
 function applyActivity() {
   const config = activityConfig();
+  $("#customActivityField").hidden = els.activity.value !== "custom";
+  $("#paceField").hidden = config.kind === "time";
   els.pace.inputMode = config.kind === "speed" ? "decimal" : "text";
   els.pace.value = parseClock(els.time.value) ? "" : paceByActivity[els.activity.value];
   els.pace.removeAttribute("aria-invalid");
@@ -1168,7 +1277,10 @@ function locateMe() {
 /* ---------- GPX ---------- */
 
 function createGpx() {
-  const name = escapeXml(els.routeName.value.trim() || "Minha rota");
+  const custom = els.activity.value === "custom" ? els.customActivity.value.trim() : "";
+  const routeName = els.routeName.value.trim();
+  const name = escapeXml(custom && routeName === els.routeName.defaultValue ? custom : routeName || custom || "Minha rota");
+  const type = escapeXml(custom || activityConfig().gpxType);
   const desc = els.description.value.trim();
   const points = route.coords
     .map((coord, index) => {
@@ -1184,7 +1296,7 @@ function createGpx() {
   </metadata>
   <trk>
     <name>${name}</name>
-    <type>${activityConfig().gpxType}</type>
+    <type>${type}</type>
     <trkseg>
 ${points}
     </trkseg>
@@ -1198,7 +1310,9 @@ function downloadGpx() {
   const blob = new Blob([createGpx()], { type: "application/gpx+xml" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
-  const safeName = (els.routeName.value || "rota")
+  const customName = els.activity.value === "custom" ? els.customActivity.value.trim() : "";
+  const routeName = els.routeName.value.trim();
+  const safeName = (customName && routeName === els.routeName.defaultValue ? customName : routeName || customName || "rota")
     .toLowerCase()
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "")
@@ -1222,9 +1336,17 @@ async function importGpx(file) {
       .map((node) => ({ lat: Number(node.getAttribute("lat")), lng: Number(node.getAttribute("lon")) }))
       .filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng));
     if (points.length < 2) throw new Error("Sem pontos");
-    const simplified = simplifyToLimit(points, MAX_IMPORT_POINTS, 15);
+    const ownRoute = xml.documentElement.getAttribute("creator") === "Fake Strava";
+    const simplified = ownRoute && points.length <= 275 ? points : simplifyToLimit(points, MAX_IMPORT_POINTS, 15);
     const name = xml.querySelector("trk > name, rte > name, metadata > name")?.textContent?.trim();
     if (name) els.routeName.value = name;
+    const type = xml.querySelector("trk > type, rte > type")?.textContent?.trim();
+    if (type) {
+      const match = Object.keys(ACTIVITIES).find((key) => ACTIVITIES[key].gpxType === type.toLowerCase());
+      els.activity.value = match || "custom";
+      if (!match) els.customActivity.value = type.slice(0, 60);
+      applyActivity();
+    }
     els.snap.checked = false;
     commit(() => {
       state.waypoints = simplified;
@@ -1247,6 +1369,7 @@ function saveDraft() {
         waypoints: state.waypoints,
         snap: els.snap.checked,
         activity: els.activity.value,
+        customActivity: els.customActivity.value,
         pace: paceByActivity,
         simulation: Object.fromEntries(Object.entries(simulationFields).map(([key, input]) => [key, input.value])),
         weight: els.weight.value,
@@ -1272,6 +1395,7 @@ function loadDraft() {
         .map(copyPoint);
     }
     if (typeof draft.snap === "boolean") els.snap.checked = draft.snap;
+    if (typeof draft.customActivity === "string") els.customActivity.value = draft.customActivity;
     if (Object.hasOwn(ACTIVITIES, draft.activity)) els.activity.value = draft.activity;
     if (draft.pace && typeof draft.pace === "object") {
       Object.keys(paceByActivity).forEach((key) => {
@@ -1306,6 +1430,7 @@ function init() {
     return;
   }
 
+  populateActivities();
   const view = loadDraft() || DEFAULT_VIEW;
   applyActivity();
 
@@ -1335,7 +1460,21 @@ function init() {
   setupChartHover();
 
   modeButtons.forEach((button) => button.addEventListener("click", () => setMode(button.dataset.mode)));
-  shapeButtons.forEach((button) => button.addEventListener("click", () => createShape(button.dataset.shape)));
+  shapeButtons.forEach((button) => button.addEventListener("click", () => {
+    createDesign(unitShape(button.dataset.shape), "Forma traçada no mapa.");
+  }));
+  $("#routeTextForm").addEventListener("submit", writeRoute);
+  $("#routeText").addEventListener("input", (event) => event.target.setCustomValidity(""));
+  $("#drawOnMap").addEventListener("click", () => setMode(state.mode === "free" ? "click" : "free"));
+  $("#resizeMap").addEventListener("click", (event) => {
+    const button = event.currentTarget;
+    const expanded = $(".map-area").classList.toggle("is-expanded");
+    const label = expanded ? "Reduzir mapa" : "Ampliar mapa";
+    button.setAttribute("aria-pressed", expanded);
+    button.setAttribute("aria-label", label);
+    button.title = label;
+    map.invalidateSize({ animate: false });
+  });
   els.autoLoop.addEventListener("click", generateLoop);
   els.undo.addEventListener("click", undo);
   els.redo.addEventListener("click", redo);
@@ -1344,6 +1483,10 @@ function init() {
   els.reverse.addEventListener("click", reverseRoute);
   els.clear.addEventListener("click", clearRoute);
   els.download.addEventListener("click", downloadGpx);
+  $("#stravaRoutes").addEventListener("click", () => {
+    downloadGpx();
+    window.open("https://www.strava.com/maps/create", "_blank", "noopener");
+  });
 
   els.snap.addEventListener("change", () => {
     afterChange();
@@ -1378,7 +1521,7 @@ function init() {
   Object.values(simulationFields).filter((input) => input !== els.time).forEach((input) => {
     input.addEventListener("input", updateSimulation);
   });
-  [els.weight, els.climb].forEach((input) => input.addEventListener("input", updateSimulation));
+  [els.weight, els.climb, els.customActivity].forEach((input) => input.addEventListener("input", updateSimulation));
   $("#resetSimulation").addEventListener("click", () => {
     Object.values(simulationFields).forEach((input) => { input.value = ""; });
     paceByActivity[els.activity.value] = activityConfig().fallback;

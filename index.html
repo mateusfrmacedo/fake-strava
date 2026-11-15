@@ -6,7 +6,7 @@
     <title>Fake Strava - Planejador de rotas</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="styles.css?v=7" />
+    <link rel="stylesheet" href="styles.css?v=8" />
   </head>
   <body>
     <header class="topbar">
@@ -37,8 +37,12 @@
             <div class="search-status" id="statusText" role="status">Clique no mapa para marcar a largada.</div>
           </div>
           <form id="searchForm" autocomplete="off" role="search" aria-label="Buscar lugar no mapa" hidden>
+            <div class="search-modes" role="group" aria-label="Tipo de busca">
+              <button id="searchCity" type="button" aria-pressed="true">Cidade</button>
+              <button id="searchAddress" type="button" aria-pressed="false">Endereço</button>
+            </div>
             <div class="search-input-row">
-              <input id="locationSearch" type="search" placeholder="Cidade, bairro ou endereço" aria-label="Buscar lugar" />
+              <input id="locationSearch" type="search" placeholder="Ex.: Campinas, SP" aria-label="Buscar lugar" />
               <button class="text-button" type="submit" aria-label="Buscar">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
                 Buscar
@@ -269,6 +273,6 @@
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="route-design.js"></script>
-    <script src="script.js?v=5"></script>
+    <script src="script.js?v=6"></script>
   </body>
 </html>

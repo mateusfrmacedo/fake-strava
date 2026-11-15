@@ -1170,10 +1170,43 @@ function applyActivity() {
 
 let suggestTimer = 0;
 let suggestToken = 0;
+let searchMode = "city";
 
-function placeLabel(properties) {
-  const parts = [properties.name, properties.street, properties.city, properties.state, properties.country];
+const BRAZILIAN_STATES = {
+  AC: "Acre", AL: "Alagoas", AP: "Amapá", AM: "Amazonas", BA: "Bahia", CE: "Ceará",
+  DF: "Distrito Federal", ES: "Espírito Santo", GO: "Goiás", MA: "Maranhão", MT: "Mato Grosso",
+  MS: "Mato Grosso do Sul", MG: "Minas Gerais", PA: "Pará", PB: "Paraíba", PR: "Paraná",
+  PE: "Pernambuco", PI: "Piauí", RJ: "Rio de Janeiro", RN: "Rio Grande do Norte",
+  RS: "Rio Grande do Sul", RO: "Rondônia", RR: "Roraima", SC: "Santa Catarina",
+  SP: "São Paulo", SE: "Sergipe", TO: "Tocantins",
+};
+
+function normalizePlace(text) {
+  return (text || "").normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().trim();
+}
+
+function expandCityQuery(query) {
+  const match = query.match(/^(.+?)(?:[,\s-]+)([a-z]{2})$/i);
+  if (!match) return { query, state: "" };
+  const state = BRAZILIAN_STATES[match[2].toUpperCase()];
+  return state ? { query: `${match[1].trim()}, ${state}`, state } : { query, state: "" };
+}
+
+function placeLabel(properties, mode) {
+  const parts = mode === "city"
+    ? [properties.name, properties.state, properties.country]
+    : [properties.name, properties.street, properties.city, properties.state, properties.country];
   return [...new Set(parts.filter(Boolean))].join(", ");
+}
+
+function setSearchMode(mode) {
+  searchMode = mode;
+  $("#searchCity").setAttribute("aria-pressed", mode === "city");
+  $("#searchAddress").setAttribute("aria-pressed", mode === "address");
+  els.search.placeholder = mode === "city" ? "Ex.: Campinas, SP" : "Rua, número, bairro ou CEP";
+  hideSuggestions();
+  onSearchInput();
+  els.search.focus({ preventScroll: true });
 }
 
 function hideSuggestions() {
@@ -1194,22 +1227,38 @@ function setSearchOpen(open, focus = false) {
   }
 }
 
-function goToPlace(lat, lng, label) {
-  map.setView([lat, lng], 15);
+function goToPlace(lat, lng, label, zoom = 15) {
+  map.setView([lat, lng], zoom);
   setSearchOpen(false, els.searchForm.contains(document.activeElement));
   setStatus(`Mapa em ${label}. ${defaultHint()}`, "success");
 }
 
-async function loadSuggestions(query) {
-  const token = ++suggestToken;
-  const center = map.getCenter();
-  const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=5&lat=${center.lat.toFixed(3)}&lon=${center.lng.toFixed(3)}`;
-  const data = await fetchJson(url, 6000);
-  if (token !== suggestToken) return [];
-  return (data.features || []).map((feature) => ({
-    label: placeLabel(feature.properties),
+async function loadSuggestions(text, mode) {
+  const city = mode === "city";
+  const { query, state } = city ? expandCityQuery(text) : { query: text, state: "" };
+  const params = new URLSearchParams({ q: query, limit: "5" });
+  if (city) {
+    params.set("layer", "city");
+    if (state) params.set("countrycode", "BR");
+  } else {
+    const center = map.getCenter();
+    params.set("lat", center.lat.toFixed(3));
+    params.set("lon", center.lng.toFixed(3));
+  }
+  const data = await fetchJson(`https://photon.komoot.io/api/?${params}`, 6000);
+  const features = (data.features || []).filter(({ properties }) =>
+    !city || (properties.type === "city" && (!state || normalizePlace(properties.state) === normalizePlace(state)))
+  );
+  if (city) {
+    const name = normalizePlace(query.split(",")[0]);
+    const exact = (feature) => Number(normalizePlace(feature.properties.name) === name);
+    features.sort((left, right) => exact(right) - exact(left));
+  }
+  return features.map((feature) => ({
+    label: placeLabel(feature.properties, mode),
     lat: feature.geometry.coordinates[1],
     lng: feature.geometry.coordinates[0],
+    zoom: city ? 12 : 15,
   }));
 }
 
@@ -1226,24 +1275,26 @@ function showSuggestions(items) {
     button.addEventListener("click", () => {
       const item = items[Number(button.dataset.index)];
       els.search.value = item.label;
-      goToPlace(item.lat, item.lng, item.label);
+      goToPlace(item.lat, item.lng, item.label, item.zoom);
     });
   });
 }
 
 function onSearchInput() {
   clearTimeout(suggestTimer);
+  const token = ++suggestToken;
   const query = els.search.value.trim();
+  const mode = searchMode;
   if (query.length < 3) {
     hideSuggestions();
     return;
   }
   suggestTimer = setTimeout(async () => {
     try {
-      const items = await loadSuggestions(query);
-      if (!els.searchForm.hidden && els.search.value.trim() === query) showSuggestions(items);
+      const items = await loadSuggestions(query, mode);
+      if (token === suggestToken && !els.searchForm.hidden) showSuggestions(items);
     } catch (error) {
-      hideSuggestions();
+      if (token === suggestToken) hideSuggestions();
     }
   }, 320);
 }
@@ -1251,29 +1302,37 @@ function onSearchInput() {
 async function onSearchSubmit(event) {
   event.preventDefault();
   clearTimeout(suggestTimer);
-  const query = els.search.value.trim();
-  if (!query) return;
-  setStatus("Procurando o lugar...", "loading");
+  const token = ++suggestToken;
+  const text = els.search.value.trim();
+  if (!text) return;
+  const mode = searchMode;
+  const city = mode === "city";
+  setStatus(city ? "Procurando a cidade..." : "Procurando o endereço...", "loading");
   try {
-    const items = await loadSuggestions(query);
+    const items = await loadSuggestions(text, mode);
+    if (token !== suggestToken) return;
     if (items.length) {
-      goToPlace(items[0].lat, items[0].lng, items[0].label);
+      const first = items[0];
+      goToPlace(first.lat, first.lng, first.label, first.zoom);
       return;
     }
   } catch (error) {
     /* tenta o segundo serviço abaixo */
   }
+  if (token !== suggestToken) return;
+  const params = new URLSearchParams({ format: "jsonv2", limit: "1", q: city ? expandCityQuery(text).query : text });
+  if (city) params.set("featureType", "city");
   try {
-    const results = await fetchJson(
-      `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${encodeURIComponent(query)}`
-    );
+    const results = await fetchJson(`https://nominatim.openstreetmap.org/search?${params}`);
+    if (token !== suggestToken) return;
     if (!results.length) {
-      setStatus("Lugar não encontrado. Tente cidade, bairro ou endereço.", "error");
+      setStatus(city ? "Cidade não encontrada. Tente incluir o estado." : "Endereço não encontrado. Tente incluir a cidade.", "error");
       return;
     }
-    goToPlace(Number(results[0].lat), Number(results[0].lon), results[0].display_name.split(",").slice(0, 2).join(","));
+    const first = results[0];
+    goToPlace(Number(first.lat), Number(first.lon), first.display_name.split(",").slice(0, 2).join(","), city ? 12 : 15);
   } catch (error) {
-    setStatus("Busca indisponível agora. Verifique a conexão.", "error");
+    if (token === suggestToken) setStatus("Busca indisponível agora. Verifique a conexão.", "error");
   }
 }
 
@@ -1556,6 +1615,8 @@ function init() {
   });
   [els.routeName, els.description].forEach((input) => input.addEventListener("input", saveDraft));
 
+  $("#searchCity").addEventListener("click", () => setSearchMode("city"));
+  $("#searchAddress").addEventListener("click", () => setSearchMode("address"));
   els.searchToggle.addEventListener("click", () => setSearchOpen(els.searchForm.hidden));
   els.searchForm.addEventListener("submit", onSearchSubmit);
   els.search.addEventListener("input", onSearchInput);

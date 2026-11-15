@@ -243,6 +243,29 @@ svg {
   margin-top: 6px;
 }
 
+.search-modes {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 5px;
+}
+
+.search-modes button {
+  min-height: 32px;
+  padding: 0 9px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.search-modes button[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-dark);
+}
+
 .search-input-row {
   display: flex;
   gap: 8px;

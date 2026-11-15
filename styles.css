@@ -166,7 +166,7 @@ svg {
   position: relative;
   grid-area: map;
   overflow: hidden;
-  height: clamp(360px, 46svh, 460px);
+  height: clamp(460px, 56svh, 550px);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: #e9ece4;
@@ -929,7 +929,7 @@ dialog li + li {
   }
 
   .map-area {
-    height: clamp(330px, 43svh, 380px);
+    height: clamp(410px, 57svh, 470px);
   }
 
   .search-bar {

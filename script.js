@@ -1540,7 +1540,7 @@ function createGpx(clock = null) {
     .flatMap((distance, index) => {
       let timeTag = "";
       if (clock) {
-        const elapsed = index === lastIndex ? clock.duration : Math.floor(clock.offsetAt(distance) + 1e-7);
+        const elapsed = index === lastIndex ? clock.duration : Math.round(clock.offsetAt(distance));
         if (elapsed <= previousSecond || (index !== lastIndex && elapsed >= clock.duration)) return [];
         previousSecond = elapsed;
         timeTag = `<time>${new Date(clock.start + elapsed * 1000).toISOString()}</time>`;

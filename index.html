@@ -224,8 +224,11 @@
           Baixar rota GPX
         </button>
         <div class="strava-export">
-          <button class="text-button" id="stravaRoutes" type="button" disabled>Baixar GPX e abrir Strava Web</button>
+          <button class="text-button" id="stravaRoutes" type="button" disabled>Baixar GPX e abrir Minhas rotas</button>
           <p class="fine-print">No criador de rotas do Strava, selecione o GPX baixado.</p>
+          <button class="text-button" id="stravaActivity" type="button" disabled>Baixar GPX de atividade simulada</button>
+          <p class="fine-print">Abre a página de envio de atividades do Strava. Selecione o novo GPX, que inclui os horários do percurso.</p>
+          <p class="fine-print" id="activityExportStatus" role="status" hidden></p>
         </div>
       </aside>
 
@@ -242,6 +245,6 @@
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="route-design.js"></script>
-    <script src="script.js?v=10"></script>
+    <script src="script.js?v=11"></script>
   </body>
 </html>

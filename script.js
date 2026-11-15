@@ -1230,13 +1230,17 @@ function setupChartHover() {
 
 /* ---------- painel ---------- */
 
-function renderStats() {
-  const totals = elevationTotals();
+function routePace(totals) {
   const distance = readNumber(simulationFields.distance.value) ?? route.distance / 1000;
   const time = parseClock(els.time.value);
   const gain = readNumber(simulationFields.gain.value) ?? totals?.gain;
   const adjustedPace = time && distance > 0 ? (time - climbSeconds(gain)) / distance : 0;
-  const plan = calculateSplits(adjustedPace > 0 ? adjustedPace : secondsPerKm());
+  return adjustedPace > 0 ? adjustedPace : secondsPerKm();
+}
+
+function renderStats() {
+  const totals = elevationTotals();
+  const plan = calculateSplits(routePace(totals));
   renderSimulation(totals, plan);
   renderSplits(plan);
   const seconds = plan.total;
@@ -1259,6 +1263,7 @@ function updateButtons() {
   els.clear.disabled = count === 0;
   els.download.disabled = route.coords.length < 2;
   $("#stravaRoutes").disabled = els.download.disabled;
+  $("#stravaActivity").disabled = els.download.disabled;
   if (!busy) $("#loopFeedback").textContent = pickingStart ? "Toque no mapa para escolher a largada."
     : count > 0 ? "Largada marcada." : "Toque no mapa para marcar a largada.";
 }
@@ -1473,32 +1478,86 @@ function locateMe() {
 
 /* ---------- GPX ---------- */
 
-function createGpx() {
+function buildActivityClock() {
+  const { rows, total } = calculateSplits(routePace(elevationTotals()));
+  const manualTime = parseClock(els.time.value);
+  const duration = Math.round(manualTime ?? total);
+  if (!Number.isSafeInteger(duration) || duration < 1 || !rows.length || (!manualTime && rows.some((row) => row.seconds <= 0))) {
+    throw new Error("Informe o tempo em movimento ou ajuste o tempo de todos os trechos.");
+  }
+
+  const latestStart = Date.now() - duration * 1000;
+  let start = latestStart;
+  const date = simulationFields.date.value;
+  if (date) {
+    const day = new Date(`${date}T00:00:00`);
+    if (day.getTime() > latestStart) throw new Error("Escolha uma data em que a atividade já teria terminado.");
+    day.setHours(12);
+    start = Math.min(day.getTime(), latestStart);
+  }
+  start = Math.floor(start / 1000) * 1000;
+  if (!Number.isFinite(new Date(start).getTime())) throw new Error("Confira a data e o tempo em movimento.");
+
+  const uniform = total <= 0 || rows.some((row) => row.seconds <= 0);
+  let elapsed = 0;
+  const splitStart = rows.map(({ seconds }) => {
+    const offset = elapsed;
+    elapsed += seconds;
+    return offset;
+  });
+  return {
+    start,
+    duration,
+    offsetAt(meters) {
+      if (uniform) return meters / route.distance * duration;
+      const index = Math.min(rows.length - 1, Math.floor(meters / 1000));
+      const { km, seconds } = rows[index];
+      const fraction = Math.min(1, (meters - index * 1000) / (km * 1000));
+      return (splitStart[index] + seconds * fraction) / total * duration;
+    },
+  };
+}
+
+function createGpx(clock = null) {
   const custom = els.activity.value === "custom" ? els.customActivity.value.trim() : "";
   const routeName = els.routeName.value.trim();
   const name = escapeXml(custom && routeName === els.routeName.defaultValue ? custom : routeName || custom || "Minha rota");
   const type = escapeXml(custom || activityConfig().gpxType);
-  const desc = els.description.value.trim();
+  const description = els.description.value.trim();
+  const desc = [clock ? "Atividade simulada no Fake Strava." : "", description].filter(Boolean).join(" ");
   const entries = Object.entries(state.splits)
     .filter(([index]) => Number(index) * 1000 < route.distance)
     .map(([index, entry]) => `      <plan:split km="${Number(index) + 1}" field="${escapeXml(entry.field)}" activity="${escapeXml(entry.activity || "")}">${escapeXml(entry.value)}</plan:split>`);
   const plan = entries.length
     ? `\n    <extensions xmlns:plan="${GPX_PLAN_NAMESPACE}">\n${entries.join("\n")}\n    </extensions>`
     : "";
-  const points = route.coords
-    .map((coord, index) => {
-      const ele = elevationAt(route.cum[index]);
+  const distances = clock
+    ? [...new Set([...route.cum, ...Array.from({ length: Math.ceil(route.distance / 25) }, (_, index) => index * 25)])].sort((a, b) => a - b)
+    : route.cum;
+  let previousSecond = -1;
+  const lastIndex = distances.length - 1;
+  const points = distances
+    .flatMap((distance, index) => {
+      let timeTag = "";
+      if (clock) {
+        const elapsed = index === lastIndex ? clock.duration : Math.floor(clock.offsetAt(distance) + 1e-7);
+        if (elapsed <= previousSecond || (index !== lastIndex && elapsed >= clock.duration)) return [];
+        previousSecond = elapsed;
+        timeTag = `<time>${new Date(clock.start + elapsed * 1000).toISOString()}</time>`;
+      }
+      const coord = clock ? pointAtDistance(distance) : route.coords[index];
+      const ele = elevationAt(distance);
       const eleTag = ele === null ? "" : `<ele>${ele.toFixed(1)}</ele>`;
-      return `      <trkpt lat="${coord.lat.toFixed(6)}" lon="${coord.lng.toFixed(6)}">${eleTag}</trkpt>`;
+      return `      <trkpt lat="${coord.lat.toFixed(6)}" lon="${coord.lng.toFixed(6)}">${eleTag}${timeTag}</trkpt>`;
     })
     .join("\n");
   return `<?xml version="1.0" encoding="UTF-8"?>
 <gpx version="1.1" creator="Fake Strava" xmlns="http://www.topografix.com/GPX/1/1">
   <metadata>
-    <name>${name}</name>${desc ? `\n    <desc>${escapeXml(desc)}</desc>` : ""}
+    <name>${clock ? "Simulação - " : ""}${name}</name>${desc ? `\n    <desc>${escapeXml(desc)}</desc>` : ""}
   </metadata>
   <trk>
-    <name>${name}</name>
+    <name>${clock ? "Simulação - " : ""}${name}</name>
     <type>${type}</type>${plan}
     <trkseg>
 ${points}
@@ -1508,9 +1567,9 @@ ${points}
 `;
 }
 
-function downloadGpx() {
+function downloadGpx(clock = null) {
   if (route.coords.length < 2) return;
-  const blob = new Blob([createGpx()], { type: "application/gpx+xml" });
+  const blob = new Blob([createGpx(clock)], { type: "application/gpx+xml" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   const customName = els.activity.value === "custom" ? els.customActivity.value.trim() : "";
@@ -1522,12 +1581,12 @@ function downloadGpx() {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "");
   link.href = url;
-  link.download = `${safeName || "rota"}.gpx`;
+  link.download = `${clock ? "simulacao-" : ""}${safeName || "rota"}.gpx`;
   document.body.append(link);
   link.click();
   link.remove();
   URL.revokeObjectURL(url);
-  setStatus(elevation ? "Rota baixada com traçado e altimetria." : "Rota baixada (sem altimetria).", "success");
+  if (!clock) setStatus(elevation ? "Rota baixada com traçado e altimetria." : "Rota baixada (sem altimetria).", "success");
 }
 
 async function importGpx(file) {
@@ -1715,10 +1774,24 @@ function init() {
   els.back.addEventListener("click", outAndBack);
   els.reverse.addEventListener("click", reverseRoute);
   els.clear.addEventListener("click", clearRoute);
-  els.download.addEventListener("click", downloadGpx);
+  els.download.addEventListener("click", () => downloadGpx());
   $("#stravaRoutes").addEventListener("click", () => {
     downloadGpx();
     window.open("https://www.strava.com/maps/create", "_blank", "noopener");
+  });
+  $("#stravaActivity").addEventListener("click", () => {
+    const status = $("#activityExportStatus");
+    status.hidden = false;
+    let clock;
+    try {
+      clock = buildActivityClock();
+    } catch (error) {
+      status.textContent = error.message;
+      return;
+    }
+    downloadGpx(clock);
+    status.textContent = "Selecione o arquivo com o prefixo simulacao- na página de envio.";
+    window.open("https://www.strava.com/upload/select", "_blank", "noopener");
   });
 
   els.snap.addEventListener("change", () => {

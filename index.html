@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Traçado GPX - Planejador de rotas</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand" aria-label="Traçado GPX">
+        <span class="brand-mark">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="6" r="2.5"/><path d="M8.5 18H14a3.5 3.5 0 0 0 0-7h-4a3.5 3.5 0 0 1 0-7h5.5"/></svg>
+        </span>
+        <span>Traçado <strong>GPX</strong></span>
+      </div>
+      <div class="divider"></div>
+      <h1>Planejador de rotas</h1>
+      <div class="top-actions">
+        <label class="text-button" for="importInput" title="Abrir um arquivo GPX para editar">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V3"/><path d="m7 8 5-5 5 5"/><path d="M5 21h14"/></svg>
+          Importar GPX
+        </label>
+        <input id="importInput" type="file" accept=".gpx,application/gpx+xml,text/xml" hidden />
+        <button class="icon-button" id="helpButton" type="button" title="Ajuda" aria-label="Ajuda">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.1 9a3 3 0 1 1 5.82 1c-.46 1.25-1.92 1.88-2.46 2.86-.18.32-.24.7-.24 1.14"/><path d="M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <main class="app-shell">
+      <section class="map-area" aria-label="Mapa para montar a rota">
+        <form class="search-bar" id="searchForm" autocomplete="off">
+          <div class="search-input-row">
+            <input id="locationSearch" placeholder="Buscar cidade, bairro ou endereço" aria-label="Buscar lugar" />
+            <button class="text-button" type="submit">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+              Buscar
+            </button>
+          </div>
+          <ul class="suggestions" id="suggestions" hidden></ul>
+          <div class="search-status" id="statusText">Clique no mapa para marcar a largada.</div>
+        </form>
+
+        <div class="map-toolbar" aria-label="Ferramentas do mapa">
+          <button class="tool-button" id="zoomIn" type="button" title="Aproximar" aria-label="Aproximar">+</button>
+          <button class="tool-button" id="zoomOut" type="button" title="Afastar" aria-label="Afastar">&minus;</button>
+          <button class="tool-button" id="fitButton" type="button" title="Enquadrar a rota" aria-label="Enquadrar a rota">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5"/><path d="M20 9V4h-5"/><path d="M4 15v5h5"/><path d="M20 15v5h-5"/></svg>
+          </button>
+          <button class="tool-button" id="locateButton" type="button" title="Ir para minha localização" aria-label="Ir para minha localização">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v4"/><path d="M12 18v4"/><path d="M2 12h4"/><path d="M18 12h4"/><circle cx="12" cy="12" r="8"/></svg>
+          </button>
+        </div>
+
+        <div id="routeMap" class="route-map" role="application" aria-label="Mapa: clique para adicionar pontos"></div>
+
+        <div class="map-dock">
+          <div class="dock-summary">
+            <strong id="dockDistance">0,00 km</strong>
+            <span id="dockTime">0:00</span>
+            <span id="dockGain">subida &mdash;</span>
+          </div>
+          <div class="dock-actions">
+            <button type="button" id="undoButton" title="Desfazer (Ctrl+Z)">Desfazer</button>
+            <button type="button" id="redoButton" title="Refazer (Ctrl+Shift+Z)">Refazer</button>
+            <button type="button" id="loopButton" title="Voltar à largada pelo caminho mais curto">Fechar circuito</button>
+            <button type="button" id="backButton" title="Voltar pelo mesmo caminho">Ida e volta</button>
+            <button type="button" id="reverseButton" title="Inverter o sentido">Inverter</button>
+            <button type="button" id="clearButton" class="danger" title="Apagar a rota">Limpar</button>
+          </div>
+        </div>
+      </section>
+
+      <aside class="control-panel" aria-label="Controles da rota">
+        <section class="panel-section">
+          <h2>Como desenhar</h2>
+          <div class="segmented" role="group" aria-label="Modo de desenho">
+            <button type="button" class="active" data-mode="click">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-6-5.3-6-10a6 6 0 1 1 12 0c0 4.7-6 10-6 10z"/><circle cx="12" cy="11" r="2"/></svg>
+              Clicar pontos
+            </button>
+            <button type="button" data-mode="free">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 5 4 4"/><path d="M4 20 8 19l10.5-10.5a2.8 2.8 0 0 0-4-4L4 15z"/></svg>
+              Desenho livre
+            </button>
+          </div>
+          <label class="toggle-row">
+            <span>
+              <strong>Seguir ruas</strong>
+              <small>Liga os pontos pelo caminho real</small>
+            </span>
+            <input id="snapToggle" type="checkbox" checked />
+          </label>
+        </section>
+
+        <section class="panel-section">
+          <h2>Criar automaticamente</h2>
+          <label class="target-row" for="targetKm">
+            Distância desejada
+            <span class="target-input"><input id="targetKm" type="number" min="1" max="60" step="0.5" value="5" /> km</span>
+          </label>
+          <input id="targetRange" type="range" min="1" max="42" step="0.5" value="5" aria-label="Distância desejada" />
+          <button class="primary-outline" id="autoLoop" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg>
+            Gerar circuito
+          </button>
+          <p class="fine-print">Sai da largada (ou do centro do mapa) e volta ao mesmo ponto. Clique de novo para outra opção.</p>
+          <div class="shape-grid">
+            <button type="button" class="mode-card" data-shape="heart">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 1 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>
+              Coração
+            </button>
+            <button type="button" class="mode-card" data-shape="circle">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/></svg>
+              Círculo
+            </button>
+            <button type="button" class="mode-card" data-shape="star">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.7 5.8 6.3.8-4.6 4.4 1.2 6.3L12 17.2 6.4 20.3l1.2-6.3L3 9.6l6.3-.8z"/></svg>
+              Estrela
+            </button>
+          </div>
+        </section>
+
+        <section class="panel-section">
+          <h2>Resumo</h2>
+          <div class="stats-grid">
+            <div><span>Distância</span><strong id="distanceStat">0,00 km</strong></div>
+            <div><span>Tempo estimado</span><strong id="durationStat">0:00</strong></div>
+            <div><span>Subida</span><strong id="gainStat">&mdash;</strong></div>
+            <div><span>Descida</span><strong id="lossStat">&mdash;</strong></div>
+            <div><span>Altitude máx.</span><strong id="maxElevStat">&mdash;</strong></div>
+            <div><span>Altitude mín.</span><strong id="minElevStat">&mdash;</strong></div>
+          </div>
+        </section>
+
+        <section class="panel-section">
+          <h2>Detalhes</h2>
+          <div class="form-grid">
+            <label class="full-span">Nome da rota<input id="routeName" value="Minha rota" /></label>
+            <label>Atividade
+              <select id="activity">
+                <option value="run">Corrida</option>
+                <option value="walk">Caminhada</option>
+                <option value="bike">Pedal</option>
+              </select>
+            </label>
+            <label><span id="paceLabel">Ritmo (min/km)</span><input id="paceInput" inputmode="decimal" value="5:30" /></label>
+            <label class="full-span">Descrição<textarea id="description" placeholder="Opcional"></textarea></label>
+          </div>
+        </section>
+
+        <button class="download-button" id="downloadButton" type="button" disabled>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+          Baixar rota GPX
+        </button>
+        <p class="fine-print bottom">O arquivo é uma rota planejada, com o traçado e a altimetria, para seguir no relógio ou no celular.</p>
+      </aside>
+
+      <section class="charts-row" aria-label="Perfil de elevação">
+        <article class="chart-panel">
+          <div class="chart-heading">
+            <h2>Perfil de elevação</h2>
+            <span id="elevNote">Monte uma rota para ver a altimetria.</span>
+          </div>
+          <svg id="elevChart" viewBox="0 0 1000 230" role="img" aria-label="Gráfico de elevação ao longo da rota"></svg>
+        </article>
+      </section>
+    </main>
+
+    <dialog id="helpDialog">
+      <form method="dialog">
+        <button class="close-dialog" aria-label="Fechar">&times;</button>
+        <h2>Como montar uma rota</h2>
+        <ul>
+          <li><strong>Clique no mapa</strong> para marcar a largada e os próximos pontos. Com "Seguir ruas" ligado, cada trecho acompanha o caminho real.</li>
+          <li><strong>Arraste</strong> qualquer ponto para ajustar. <strong>Clique na linha</strong> para criar um ponto de desvio e arrastá-lo.</li>
+          <li><strong>Clique em um ponto</strong> para removê-lo. Clicar na largada fecha o circuito.</li>
+          <li><strong>Desenho livre</strong>: segure e arraste para riscar o trajeto; ele vira pontos editáveis.</li>
+          <li><strong>Gerar circuito</strong> cria sozinho uma volta com a distância desejada.</li>
+          <li>Ctrl+Z desfaz, Ctrl+Shift+Z refaz. O rascunho fica salvo neste navegador.</li>
+        </ul>
+      </form>
+    </dialog>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="script.js"></script>
+  </body>
+</html>

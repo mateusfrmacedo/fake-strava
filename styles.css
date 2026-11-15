@@ -149,7 +149,7 @@ svg {
 
 .app-shell {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 372px;
+  grid-template-columns: minmax(0, 1fr) 350px;
   grid-template-rows: auto 1fr;
   grid-template-areas:
     "map panel"
@@ -166,7 +166,7 @@ svg {
   position: relative;
   grid-area: map;
   overflow: hidden;
-  height: clamp(520px, 68svh, 680px);
+  height: clamp(580px, 86svh, 940px);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: #e9ece4;
@@ -207,19 +207,40 @@ svg {
   font-weight: 700;
 }
 
-.search-bar {
+.map-search {
   position: absolute;
-  top: 14px;
-  right: 14px;
-  left: 66px;
+  top: 12px;
+  right: 12px;
+  left: 64px;
   z-index: 4;
-  max-width: 560px;
-  padding: 8px;
+  width: fit-content;
+  max-width: min(560px, calc(100% - 76px));
+  padding: 4px;
   border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.95);
-  box-shadow: 0 12px 32px rgba(30, 28, 22, 0.14);
-  backdrop-filter: blur(14px);
+  box-shadow: 0 8px 20px rgba(30, 28, 22, 0.12);
+}
+
+.map-search.is-open {
+  width: 560px;
+}
+
+.map-search-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.search-toggle {
+  flex: 0 0 auto;
+  min-height: 36px;
+  padding: 0 8px;
+  font-size: 12px;
+}
+
+#searchForm {
+  margin-top: 6px;
 }
 
 .search-input-row {
@@ -265,9 +286,9 @@ svg {
 }
 
 .search-status {
-  margin: 7px 3px 1px;
+  margin: 0 4px 0 0;
   color: var(--muted);
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 650;
   line-height: 1.35;
 }
@@ -311,8 +332,8 @@ svg {
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 10px 16px;
-  padding: 10px 12px;
+  gap: 6px 12px;
+  padding: 7px 9px;
   border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.95);
@@ -427,13 +448,13 @@ svg {
 }
 
 .panel-section {
-  padding: 14px;
+  padding: 10px 12px;
   border-bottom: 1px solid var(--border);
 }
 
 .panel-section h2,
 .chart-heading h2 {
-  margin: 0 0 12px;
+  margin: 0 0 8px;
   font-size: 14px;
   font-weight: 780;
 }
@@ -560,14 +581,14 @@ svg {
 
 .shape-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
 }
 
 .mode-card {
   display: flex;
-  min-height: 62px;
-  flex-direction: column;
+  min-height: 40px;
+  padding: 0 4px;
   align-items: center;
   justify-content: center;
   gap: 6px;
@@ -575,8 +596,14 @@ svg {
   border-radius: 7px;
   background: var(--surface-soft);
   color: #33342f;
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 700;
+}
+
+.mode-card svg {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
 }
 
 .mode-card:not(:disabled):hover {
@@ -616,7 +643,7 @@ label.text-button:focus-within {
 }
 
 .stats-grid div {
-  padding: 10px 12px;
+  padding: 7px 9px;
   border: 1px solid var(--border);
   border-radius: 7px;
   background: var(--surface-soft);
@@ -631,16 +658,16 @@ label.text-button:focus-within {
 
 .stats-grid strong {
   display: block;
-  margin-top: 6px;
-  font-size: 19px;
+  margin-top: 4px;
+  font-size: 17px;
   line-height: 1.1;
   font-variant-numeric: tabular-nums;
 }
 
 .form-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
 }
 
 .form-grid label {
@@ -651,8 +678,8 @@ label.text-button:focus-within {
 
 .form-grid input,
 .form-grid select {
-  height: 38px;
-  margin-top: 6px;
+  height: 36px;
+  margin-top: 4px;
   padding: 0 10px;
   font-size: 14px;
 }
@@ -929,12 +956,24 @@ dialog li + li {
   }
 
   .map-area {
-    height: clamp(460px, 62svh, 560px);
+    height: max(520px, 82svh);
   }
 
-  .search-bar {
-    right: 10px;
-    left: 58px;
+  .map-search {
+    right: 8px;
+    left: 56px;
+    max-width: calc(100% - 64px);
+  }
+
+  .search-toggle span {
+    display: none;
+  }
+
+  .search-input-row input,
+  .form-grid input,
+  .form-grid select,
+  .form-grid textarea {
+    font-size: 16px;
   }
 
   .search-input-row .text-button {
@@ -984,7 +1023,7 @@ dialog li + li {
 }
 
 .map-area.is-expanded {
-  height: max(560px, 82svh);
+  height: max(620px, 100svh);
 }
 
 .tool-button[aria-pressed="true"] {

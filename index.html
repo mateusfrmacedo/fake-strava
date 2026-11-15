@@ -6,7 +6,7 @@
     <title>Fake Strava - Planejador de rotas</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="styles.css?v=6" />
+    <link rel="stylesheet" href="styles.css?v=7" />
   </head>
   <body>
     <header class="topbar">
@@ -27,17 +27,26 @@
 
     <main class="app-shell">
       <section class="map-area" aria-label="Mapa para montar a rota">
-        <form class="search-bar" id="searchForm" autocomplete="off">
-          <div class="search-input-row">
-            <input id="locationSearch" placeholder="Buscar cidade, bairro ou endereço" aria-label="Buscar lugar" />
-            <button class="text-button" type="submit">
+        <div class="map-search" id="mapSearch">
+          <div class="map-search-header">
+            <button class="text-button search-toggle" id="searchToggle" type="button" aria-label="Buscar lugar no mapa"
+              aria-expanded="false" aria-controls="searchForm">
               <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-              Buscar
+              <span>Buscar lugar</span>
             </button>
+            <div class="search-status" id="statusText" role="status">Clique no mapa para marcar a largada.</div>
           </div>
-          <ul class="suggestions" id="suggestions" hidden></ul>
-          <div class="search-status" id="statusText">Clique no mapa para marcar a largada.</div>
-        </form>
+          <form id="searchForm" autocomplete="off" role="search" aria-label="Buscar lugar no mapa" hidden>
+            <div class="search-input-row">
+              <input id="locationSearch" type="search" placeholder="Cidade, bairro ou endereço" aria-label="Buscar lugar" />
+              <button class="text-button" type="submit" aria-label="Buscar">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+                Buscar
+              </button>
+            </div>
+            <ul class="suggestions" id="suggestions" hidden></ul>
+          </form>
+        </div>
 
         <div class="map-toolbar" aria-label="Ferramentas do mapa">
           <button class="tool-button" id="zoomIn" type="button" title="Aproximar" aria-label="Aproximar">+</button>
@@ -260,6 +269,6 @@
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="route-design.js"></script>
-    <script src="script.js?v=4"></script>
+    <script src="script.js?v=5"></script>
   </body>
 </html>

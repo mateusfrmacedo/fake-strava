@@ -90,6 +90,8 @@ for (const [key, [gpxType, met]] of Object.entries(TIMED_SPORTS)) {
 const els = {
   map: $("#routeMap"),
   status: $("#statusText"),
+  searchPanel: $("#mapSearch"),
+  searchToggle: $("#searchToggle"),
   searchForm: $("#searchForm"),
   search: $("#locationSearch"),
   suggestions: $("#suggestions"),
@@ -739,7 +741,7 @@ function renderKmMarkers() {
 function fitRoute() {
   if (route.coords.length >= 2) {
     const paddingLimit = Math.floor(map.getSize().y * 0.42);
-    const top = Math.min(paddingLimit, els.searchForm.offsetHeight + 24);
+    const top = Math.min(paddingLimit, els.searchPanel.offsetHeight + 22);
     const bottom = Math.min(paddingLimit, $(".map-dock").offsetHeight + 32);
     map.fitBounds(L.latLngBounds(route.coords), {
       paddingTopLeft: [64, top],
@@ -1179,9 +1181,22 @@ function hideSuggestions() {
   els.suggestions.innerHTML = "";
 }
 
+function setSearchOpen(open, focus = false) {
+  els.searchForm.hidden = !open;
+  els.searchPanel.classList.toggle("is-open", open);
+  els.searchToggle.setAttribute("aria-expanded", open);
+  if (open) {
+    els.search.focus({ preventScroll: true });
+  } else {
+    clearTimeout(suggestTimer);
+    hideSuggestions();
+    if (focus) els.searchToggle.focus({ preventScroll: true });
+  }
+}
+
 function goToPlace(lat, lng, label) {
   map.setView([lat, lng], 15);
-  hideSuggestions();
+  setSearchOpen(false, els.searchForm.contains(document.activeElement));
   setStatus(`Mapa em ${label}. ${defaultHint()}`, "success");
 }
 
@@ -1225,7 +1240,8 @@ function onSearchInput() {
   }
   suggestTimer = setTimeout(async () => {
     try {
-      showSuggestions(await loadSuggestions(query));
+      const items = await loadSuggestions(query);
+      if (!els.searchForm.hidden && els.search.value.trim() === query) showSuggestions(items);
     } catch (error) {
       hideSuggestions();
     }
@@ -1540,10 +1556,11 @@ function init() {
   });
   [els.routeName, els.description].forEach((input) => input.addEventListener("input", saveDraft));
 
+  els.searchToggle.addEventListener("click", () => setSearchOpen(els.searchForm.hidden));
   els.searchForm.addEventListener("submit", onSearchSubmit);
   els.search.addEventListener("input", onSearchInput);
   document.addEventListener("click", (event) => {
-    if (!els.searchForm.contains(event.target)) hideSuggestions();
+    if (!els.searchForm.hidden && !els.searchPanel.contains(event.target)) setSearchOpen(false);
   });
 
   $("#zoomIn").addEventListener("click", () => map.zoomIn());
@@ -1558,6 +1575,11 @@ function init() {
   });
 
   document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !els.searchForm.hidden) {
+      event.preventDefault();
+      setSearchOpen(false, true);
+      return;
+    }
     if (event.target.closest("input, textarea, select")) return;
     const key = event.key.toLowerCase();
     if ((event.ctrlKey || event.metaKey) && key === "z") {

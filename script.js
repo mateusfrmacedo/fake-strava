@@ -8,6 +8,7 @@
 const $ = (selector) => document.querySelector(selector);
 
 const STORAGE_KEY = "tracado-gpx-rascunho-v1";
+const GPX_PLAN_NAMESPACE = "https://mateusfrmacedo.github.io/fake-strava/gpx/1";
 const DEFAULT_VIEW = { lat: -23.5617, lng: -46.6918, zoom: 14 };
 const MAX_HISTORY = 100;
 const MAX_FREEHAND_POINTS = 40;
@@ -97,6 +98,9 @@ const els = {
   suggestions: $("#suggestions"),
   snap: $("#snapToggle"),
   targetKm: $("#targetKm"),
+  quickKm: $("#quickKm"),
+  quickLoop: $("#buildQuickLoop"),
+  pickStart: $("#pickStart"),
   targetRange: $("#targetRange"),
   autoLoop: $("#autoLoop"),
   shape: $("#routeShape"),
@@ -131,7 +135,7 @@ const simulationFields = {
 };
 const modeButtons = [...document.querySelectorAll("[data-mode]")];
 
-const state = { waypoints: [], mode: "click" };
+const state = { waypoints: [], mode: "click", splits: {} };
 const paceByActivity = Object.fromEntries(Object.entries(ACTIVITIES).map(([key, config]) => [key, config.fallback]));
 const undoStack = [];
 const redoStack = [];
@@ -152,6 +156,8 @@ let elevationTimer = 0;
 let elevationToken = 0;
 let draggingMarker = false;
 let busy = false;
+let pickingStart = false;
+let routeRevision = 0;
 
 /* ---------- geometria ---------- */
 
@@ -348,7 +354,7 @@ function readSimulationField(input, parse) {
   return value;
 }
 
-function renderSimulation(totals = elevationTotals()) {
+function renderSimulation(totals, splitPlan) {
   const activity = activityConfig();
   const routeKm = route.distance / 1000;
   const manualDistance = readSimulationField(simulationFields.distance, readNumber);
@@ -359,7 +365,8 @@ function renderSimulation(totals = elevationTotals()) {
   const basePace = secondsPerKm();
   const ascentTime = climbSeconds(gain);
   const automaticTime = distance > 0 && basePace > 0 ? distance * basePace + ascentTime : null;
-  const seconds = manualTime ?? automaticTime;
+  const plannedTime = splitPlan.edited && manualDistance === null ? splitPlan.total : null;
+  const seconds = manualTime ?? plannedTime ?? automaticTime;
   const average = activity.kind !== "time" && distance > 0 && seconds > 0 ? seconds / distance : null;
   const automaticCalories = estimateCalories(distance, seconds, gain);
   const calories = readSimulationField(simulationFields.calories, readNumber) ?? automaticCalories;
@@ -371,7 +378,8 @@ function renderSimulation(totals = elevationTotals()) {
   simulationFields.gain.placeholder = automaticGain === null ? "Automático" : String(Math.round(automaticGain));
   simulationFields.calories.placeholder = automaticCalories === null ? "Automático" : String(Math.round(automaticCalories));
   simulationFields.heartRate.placeholder = automaticHeartRate === null ? "Automático" : String(automaticHeartRate);
-  els.time.placeholder = automaticTime === null ? "h:mm:ss" : formatClock(automaticTime);
+  const suggestedTime = plannedTime ?? automaticTime;
+  els.time.placeholder = suggestedTime === null ? "h:mm:ss" : formatClock(suggestedTime);
   els.pace.placeholder = manualTime && average ? formatPaceInput(average).replace(".", ",") : activity.fallback;
   els.paceLabel.textContent = !manualTime && activity.climb && els.climb.checked ? `${activity.label} · base` : activity.label || PACE_LABEL;
   $("#distanceStat").textContent = manualDistance !== null || routeKm > 0 ? formatDistance(distance * 1000) : "—";
@@ -385,26 +393,15 @@ function renderSimulation(totals = elevationTotals()) {
   $("#heartRateStat").textContent = heartRate === null ? "—" : `${Math.round(heartRate)} bpm`;
   $("#simulationDateCard").hidden = !date;
   $("#dateStat").textContent = date.split("-").reverse().join("/");
-
-  const adjustedPace = manualTime && distance > 0 ? (manualTime - ascentTime) / distance : 0;
-  return adjustedPace > 0 ? adjustedPace : basePace;
 }
 
-function renderSplits(perKm) {
-  const body = $("#splitsBody");
-  const note = $("#splitsNote");
-  const km = route.distance / 1000;
-  if (km < 1) {
-    body.innerHTML = "";
-    note.textContent = "Aparecem em rotas com 1 km ou mais.";
-    return;
-  }
-  note.textContent = elevation ? "Estimativa por trecho" : "Subida e descida aparecem quando a altimetria carregar.";
+function calculateSplits(perKm) {
   const rows = [];
-  const count = Math.ceil(km - 1e-9);
-  for (let i = 0; i < count; i += 1) {
-    const from = i * 1000;
+  let total = 0;
+  let edited = false;
+  for (let from = 0; from < route.distance - 0.01; from += 1000) {
     const to = Math.min(route.distance, from + 1000);
+    const km = (to - from) / 1000;
     let gain = null;
     let loss = null;
     if (elevation) {
@@ -418,16 +415,78 @@ function renderSplits(perKm) {
         previous = current;
       }
     }
-    const seconds = ((to - from) / 1000) * perKm + climbSeconds(gain || 0);
-    const partial = to - from < 995;
-    const label = partial
-      ? `${i + 1} (${((to - from) / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} km)`
-      : `${i + 1}`;
-    rows.push(`<tr><td>${label}</td><td>${gain === null ? "\u2014" : `+${Math.round(gain)} m`}</td><td>${
-      loss === null ? "\u2014" : `\u2212${Math.round(loss)} m`
-    }</td><td>${seconds > 0 ? formatDuration(seconds) : "—"}</td></tr>`);
+    const saved = state.splits[rows.length];
+    const parsed = saved?.field === "time" ? parseClock(saved.value)
+      : saved?.field === "pace" && saved.activity === els.activity.value ? readPace(saved.value) : null;
+    const override = parsed === null ? null : parsed * (saved.field === "pace" ? km : 1);
+    const seconds = override ?? (perKm > 0 ? km * perKm + climbSeconds(gain) : 0);
+    edited ||= override !== null;
+    total += seconds;
+    rows.push({ km, gain, loss, seconds, saved: override === null ? null : saved });
   }
-  body.innerHTML = rows.join("");
+  return { rows, total, edited };
+}
+
+function renderSplits(plan) {
+  const { rows, total } = plan;
+  const body = $("#splitsBody");
+  const enabled = rows.length > 0;
+  const activity = activityConfig();
+  const hidePace = activity.kind === "time";
+  $("#splitsEditor").hidden = !enabled;
+  $("#splitTotal").hidden = !enabled;
+  $("#goToSplits").hidden = !enabled;
+  $("#splitPaceHead").hidden = hidePace;
+  $("#splitPaceHead").textContent = activity.label || "Ritmo";
+  let note = "Gere um circuito ou desenhe uma rota para ajustar os trechos.";
+  if (enabled) note = hidePace ? "Informe o tempo de cada trecho." : "Edite o ritmo ou o tempo de cada trecho. Campos vazios usam o ritmo geral.";
+  $("#splitsNote").textContent = note;
+  $("#splitTotal").textContent = total > 0 ? `Tempo da rota ${formatClock(total)}` : "Defina o tempo dos trechos";
+  if (rows.length !== body.rows.length) {
+    body.innerHTML = rows.map((_, index) => `<tr>
+      <th scope="row"><span></span><small class="splits-elevation"></small></th>
+      <td><input aria-label="Ritmo do trecho ${index + 1}" data-split="pace" maxlength="12" /></td>
+      <td><input aria-label="Tempo do trecho ${index + 1}" data-split="time" placeholder="mm:ss" maxlength="12" /></td>
+    </tr>`).join("");
+  }
+  rows.forEach(({ km, gain, loss, seconds, saved }, index) => {
+    const [label, paceCell, timeCell] = body.rows[index].cells;
+    label.firstElementChild.textContent = km > 0.995 ? `Km ${index + 1}` : formatDistance(km * 1000);
+    label.lastElementChild.textContent = gain === null ? "" : `+${Math.round(gain)} / −${Math.round(loss)} m`;
+    paceCell.hidden = hidePace;
+    const pace = paceCell.firstElementChild;
+    const time = timeCell.firstElementChild;
+    pace.inputMode = activity.kind === "speed" ? "decimal" : "text";
+    pace.placeholder = seconds > 0 && !hidePace ? formatPaceInput(seconds / km).replace(".", ",") : "—";
+    time.placeholder = seconds > 0 ? formatClock(seconds).replace(/^0:/, "") : "mm:ss";
+    for (const input of [pace, time]) {
+      if (document.activeElement !== input) {
+        input.value = saved?.field === input.dataset.split ? saved.value : "";
+        input.removeAttribute("aria-invalid");
+      }
+    }
+  });
+}
+
+function updateSplit(event) {
+  const input = event.target.closest("input[data-split]");
+  if (!input) return;
+  const field = input.dataset.split;
+  const index = input.closest("tr").sectionRowIndex;
+  const value = input.value.trim();
+  const parsed = readSimulationField(input, field === "time" ? parseClock : readPace);
+  if (value && parsed === null) return;
+  if (value) {
+    state.splits[index] = { field, value, activity: els.activity.value };
+    if (els.time.value) {
+      els.time.value = "";
+      applyActivity();
+    }
+  } else if (state.splits[index]?.field === field) {
+    delete state.splits[index];
+  }
+  renderStats();
+  saveDraft();
 }
 
 /* ---------- roteamento ---------- */
@@ -449,12 +508,12 @@ async function fetchJson(url, timeoutMs = 10_000) {
 }
 
 /* Uma chamada para vários pontos; devolve a geometria de cada trecho. */
-async function fetchLegs(points, profile) {
+async function fetchLegs(points, profile, allowDrivingFallback = true) {
   const coordinates = points.map((p) => `${p.lng.toFixed(6)},${p.lat.toFixed(6)}`).join(";");
   const query = "?overview=false&steps=true&geometries=geojson&continue_straight=false";
   const servers = [
     `https://routing.openstreetmap.de/routed-${profile}/route/v1/driving/`,
-    "https://router.project-osrm.org/route/v1/driving/",
+    ...(allowDrivingFallback ? ["https://router.project-osrm.org/route/v1/driving/"] : []),
   ];
   let lastError;
   for (const server of servers) {
@@ -575,7 +634,7 @@ function refresh(light = false) {
 /* ---------- histórico e edição ---------- */
 
 function snapshot() {
-  return { waypoints: state.waypoints.map(copyPoint), snap: els.snap.checked };
+  return { waypoints: state.waypoints.map(copyPoint), snap: els.snap.checked, splits: { ...state.splits } };
 }
 
 function pushHistory() {
@@ -585,6 +644,7 @@ function pushHistory() {
 }
 
 function afterChange() {
+  routeRevision += 1;
   failedLegs.clear();
   refresh();
   if (!pendingLegs.size) setStatus(defaultHint());
@@ -602,6 +662,7 @@ function undo() {
   redoStack.push(snapshot());
   const previous = undoStack.pop();
   state.waypoints = previous.waypoints;
+  state.splits = previous.splits;
   els.snap.checked = previous.snap;
   afterChange();
 }
@@ -611,6 +672,7 @@ function redo() {
   undoStack.push(snapshot());
   const next = redoStack.pop();
   state.waypoints = next.waypoints;
+  state.splits = next.splits;
   els.snap.checked = next.snap;
   afterChange();
 }
@@ -638,13 +700,17 @@ function outAndBack() {
 
 function reverseRoute() {
   if (state.waypoints.length < 2) return;
-  commit(() => state.waypoints.reverse());
+  commit(() => {
+    state.waypoints.reverse();
+    state.splits = {};
+  });
 }
 
 function clearRoute() {
   if (!state.waypoints.length) return;
   commit(() => {
     state.waypoints = [];
+    state.splits = {};
   });
   setStatus("Rota apagada. Use Desfazer se foi sem querer.");
 }
@@ -700,6 +766,7 @@ function renderMarkers() {
 
     let moveTwin = false;
     marker.on("dragstart", () => {
+      routeRevision += 1;
       pushHistory();
       draggingMarker = true;
       moveTwin = isStart && closed;
@@ -715,6 +782,7 @@ function renderMarkers() {
       afterChange();
     });
     marker.on("click", () => {
+      if (pickingStart) return handleStartPoint(point);
       if (state.mode !== "click") return;
       if (isStart && closed) removeWaypoint(lastIndex);
       else if (isStart && points.length >= 3) closeLoop();
@@ -823,9 +891,30 @@ function targetMeters() {
 function setBusy(value) {
   busy = value;
   els.autoLoop.disabled = value;
+  els.quickLoop.disabled = value;
+  els.pickStart.disabled = value;
   $("#writeRoute").disabled = value;
   els.shape.disabled = value;
   els.drawShape.disabled = value;
+}
+
+function chooseStart(active) {
+  pickingStart = active;
+  els.pickStart.setAttribute("aria-pressed", active);
+  if (active) {
+    setMode("click");
+    setStatus("Toque no mapa para escolher a largada.");
+  }
+  updateButtons();
+}
+
+function handleStartPoint(latlng) {
+  chooseStart(false);
+  commit(() => {
+    state.waypoints = [copyPoint(latlng)];
+    state.splits = {};
+  });
+  setStatus("Largada marcada. Defina a distância e gere o circuito.", "success");
 }
 
 /* Circuito com a distância pedida: distribui pontos num círculo que passa
@@ -833,11 +922,12 @@ function setBusy(value) {
 async function generateLoop() {
   if (busy) return;
   const target = targetMeters();
+  const revision = routeRevision;
   const center = map.getCenter();
   const start = state.waypoints[0] ? copyPoint(state.waypoints[0]) : { lat: center.lat, lng: center.lng };
   const snap = followsStreets();
   const profile = activityConfig().profile;
-  const bearing = Math.random() * Math.PI * 2;
+  let bearing = Math.random() * Math.PI * 2;
   const direction = Math.random() < 0.5 ? 1 : -1;
   const count = snap ? 4 : 24;
 
@@ -852,31 +942,55 @@ async function generateLoop() {
     return points;
   };
 
+  if (pickingStart) chooseStart(false);
   setBusy(true);
-  setStatus("Montando um circuito com essa distância...", "loading");
+  const feedback = $("#loopFeedback");
+  feedback.textContent = "Calculando circuito…";
+  setStatus("Calculando circuito…", "loading");
   try {
     let radius = (target / (2 * Math.PI)) * (snap ? 0.72 : 1);
     let best = null;
-    for (let attempt = 0; attempt < (snap ? 4 : 1); attempt += 1) {
+    for (let attempt = 0; attempt < (snap ? 4 : 2); attempt += 1) {
+      if (revision !== routeRevision) break;
       const points = ring(radius);
-      if (!snap) {
-        best = { points, distance: pathLength(points) };
-        break;
+      let legs = null;
+      try {
+        if (snap) {
+          legs = await fetchLegs(points, profile, false);
+          const first = legs[0];
+          const last = legs[legs.length - 1];
+          if (haversine(start, first[0]) > 0.1) first.unshift(start);
+          if (haversine(last[last.length - 1], start) > 0.1) last.push(start);
+        }
+      } catch (error) {
+        bearing += Math.PI / 2;
+        if (best) break;
+        continue;
       }
-      const legs = await fetchLegs(points, profile);
-      const distance = legs.reduce((sum, line) => sum + pathLength(line), 0);
+      const distance = legs ? legs.reduce((sum, line) => sum + pathLength(line), 0) : pathLength(points);
       if (!best || Math.abs(distance - target) < Math.abs(best.distance - target)) best = { points, legs, distance };
-      if (Math.abs(distance - target) / target < 0.06) break;
+      if (Math.abs(distance - target) / target < (snap ? 0.045 : 0.0002)) break;
       radius *= Math.min(1.7, Math.max(0.5, target / Math.max(1, distance)));
+    }
+    if (revision !== routeRevision) {
+      feedback.textContent = "A rota mudou durante o cálculo. Gere outro circuito.";
+      return;
+    }
+    if (!best) {
+      const message = "Não encontrei um circuito. Tente outra largada ou distância.";
+      feedback.textContent = message;
+      setStatus(message, "error");
+      return;
     }
     if (best.legs) storeLegs(best.points, best.legs, profile);
     commit(() => {
       state.waypoints = best.points;
+      state.splits = {};
     });
     fitRoute();
-    setStatus(`Circuito de ${formatDistance(best.distance)} criado. Clique de novo para outra opção.`, "success");
-  } catch (error) {
-    setStatus("Não consegui calcular o circuito agora. Verifique a conexão e tente de novo.", "error");
+    const distance = formatDistance(route.distance);
+    feedback.textContent = `Circuito de ${distance}.`;
+    setStatus(`Circuito de ${distance} criado.`, "success");
   } finally {
     setBusy(false);
   }
@@ -929,6 +1043,7 @@ function createDesign(shape, message) {
   commit(() => {
     els.snap.checked = false;
     state.waypoints = points;
+    state.splits = {};
   });
   fitRoute();
   setStatus(message, "success");
@@ -1117,9 +1232,14 @@ function setupChartHover() {
 
 function renderStats() {
   const totals = elevationTotals();
-  const perKm = renderSimulation(totals);
-  const seconds = route.distance / 1000 * perKm + climbSeconds(totals?.gain);
-  renderSplits(perKm);
+  const distance = readNumber(simulationFields.distance.value) ?? route.distance / 1000;
+  const time = parseClock(els.time.value);
+  const gain = readNumber(simulationFields.gain.value) ?? totals?.gain;
+  const adjustedPace = time && distance > 0 ? (time - climbSeconds(gain)) / distance : 0;
+  const plan = calculateSplits(adjustedPace > 0 ? adjustedPace : secondsPerKm());
+  renderSimulation(totals, plan);
+  renderSplits(plan);
+  const seconds = plan.total;
   const meters = (value) => `${Math.round(value)} m`;
   $("#lossStat").textContent = totals ? meters(totals.loss) : "—";
   $("#maxElevStat").textContent = totals ? meters(totals.max) : "—";
@@ -1139,6 +1259,8 @@ function updateButtons() {
   els.clear.disabled = count === 0;
   els.download.disabled = route.coords.length < 2;
   $("#stravaRoutes").disabled = els.download.disabled;
+  if (!busy) $("#loopFeedback").textContent = pickingStart ? "Toque no mapa para escolher a largada."
+    : count > 0 ? "Largada marcada." : "Toque no mapa para marcar a largada.";
 }
 
 function populateActivities() {
@@ -1357,6 +1479,12 @@ function createGpx() {
   const name = escapeXml(custom && routeName === els.routeName.defaultValue ? custom : routeName || custom || "Minha rota");
   const type = escapeXml(custom || activityConfig().gpxType);
   const desc = els.description.value.trim();
+  const entries = Object.entries(state.splits)
+    .filter(([index]) => Number(index) * 1000 < route.distance)
+    .map(([index, entry]) => `      <plan:split km="${Number(index) + 1}" field="${escapeXml(entry.field)}" activity="${escapeXml(entry.activity || "")}">${escapeXml(entry.value)}</plan:split>`);
+  const plan = entries.length
+    ? `\n    <extensions xmlns:plan="${GPX_PLAN_NAMESPACE}">\n${entries.join("\n")}\n    </extensions>`
+    : "";
   const points = route.coords
     .map((coord, index) => {
       const ele = elevationAt(route.cum[index]);
@@ -1371,7 +1499,7 @@ function createGpx() {
   </metadata>
   <trk>
     <name>${name}</name>
-    <type>${type}</type>
+    <type>${type}</type>${plan}
     <trkseg>
 ${points}
     </trkseg>
@@ -1425,6 +1553,16 @@ async function importGpx(file) {
     els.snap.checked = false;
     commit(() => {
       state.waypoints = simplified;
+      state.splits = Object.fromEntries(
+        [...xml.getElementsByTagNameNS(GPX_PLAN_NAMESPACE, "split")].flatMap((node) => {
+          const km = Number(node.getAttribute("km"));
+          const field = node.getAttribute("field");
+          const activity = node.getAttribute("activity");
+          const value = node.textContent.trim();
+          if (!Number.isSafeInteger(km) || km < 1 || !["pace", "time"].includes(field) || value.length > 12) return [];
+          return [[km - 1, { field, activity, value }]];
+        })
+      );
     });
     fitRoute();
     setStatus(`Rota importada com ${simplified.length} pontos editáveis. "Seguir ruas" foi desligado para manter o traçado.`, "success");
@@ -1443,6 +1581,7 @@ function saveDraft() {
       JSON.stringify({
         waypoints: state.waypoints,
         snap: els.snap.checked,
+        splits: state.splits,
         activity: els.activity.value,
         customActivity: els.customActivity.value,
         pace: paceByActivity,
@@ -1469,6 +1608,10 @@ function loadDraft() {
         .filter((p) => p && Number.isFinite(p.lat) && Number.isFinite(p.lng))
         .map(copyPoint);
     }
+    for (const [index, entry] of Object.entries(draft.splits || {})) {
+      if (!/^\d+$/.test(index) || !["pace", "time"].includes(entry?.field) || typeof entry.value !== "string") continue;
+      state.splits[index] = entry;
+    }
     if (typeof draft.snap === "boolean") els.snap.checked = draft.snap;
     if (typeof draft.customActivity === "string") els.customActivity.value = draft.customActivity;
     if (Object.hasOwn(ACTIVITIES, draft.activity)) els.activity.value = draft.activity;
@@ -1493,6 +1636,7 @@ function loadDraft() {
 
 function setTarget(value) {
   els.targetKm.value = value;
+  if (els.quickKm.value !== value) els.quickKm.value = value;
   els.targetRange.value = Math.min(Number(els.targetRange.max), Number(value) || 5);
 }
 
@@ -1523,10 +1667,12 @@ function init() {
   hoverMarker = L.circleMarker([0, 0], { radius: 7, color: "#fff", weight: 3, fillColor: "#1f2937", fillOpacity: 1, interactive: false });
 
   map.on("click", (event) => {
+    if (pickingStart) return handleStartPoint(event.latlng);
     if (state.mode === "click") addWaypoint(event.latlng);
   });
   hitLine.on("click", (event) => {
     L.DomEvent.stopPropagation(event);
+    if (pickingStart) return handleStartPoint(event.latlng);
     if (state.mode === "click" && state.waypoints.length >= 2) insertOnLine(event.latlng);
   });
   map.on("moveend", saveDraft);
@@ -1553,6 +1699,16 @@ function init() {
     map.invalidateSize({ animate: false });
   });
   els.autoLoop.addEventListener("click", generateLoop);
+  els.pickStart.addEventListener("click", () => chooseStart(!pickingStart));
+  $("#quickLoop").addEventListener("submit", (event) => {
+    event.preventDefault();
+    if (pickingStart || !state.waypoints.length) {
+      chooseStart(true);
+      return;
+    }
+    generateLoop();
+  });
+  $("#splitsBody").addEventListener("input", updateSplit);
   els.undo.addEventListener("click", undo);
   els.redo.addEventListener("click", redo);
   els.loop.addEventListener("click", closeLoop);
@@ -1588,6 +1744,7 @@ function init() {
   });
   els.time.addEventListener("input", () => {
     if (parseClock(els.time.value)) {
+      state.splits = {};
       els.pace.value = "";
       els.pace.removeAttribute("aria-invalid");
     } else if (!els.time.value.trim()) {
@@ -1601,6 +1758,7 @@ function init() {
   [els.weight, els.climb, els.customActivity].forEach((input) => input.addEventListener("input", updateSimulation));
   $("#resetSimulation").addEventListener("click", () => {
     Object.values(simulationFields).forEach((input) => { input.value = ""; });
+    state.splits = {};
     paceByActivity[els.activity.value] = activityConfig().fallback;
     els.weight.value = els.weight.defaultValue;
     els.climb.checked = false;
@@ -1611,8 +1769,12 @@ function init() {
     setTarget(els.targetKm.value);
     saveDraft();
   });
+  els.quickKm.addEventListener("input", () => {
+    if (els.quickKm.validity.valid) setTarget(els.quickKm.value);
+    saveDraft();
+  });
   els.targetRange.addEventListener("input", () => {
-    els.targetKm.value = els.targetRange.value;
+    setTarget(els.targetRange.value);
     saveDraft();
   });
   [els.routeName, els.description].forEach((input) => input.addEventListener("input", saveDraft));
@@ -1637,6 +1799,11 @@ function init() {
   });
 
   document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && pickingStart) {
+      chooseStart(false);
+      setStatus(defaultHint());
+      return;
+    }
     if (event.key === "Escape" && !els.searchForm.hidden) {
       event.preventDefault();
       setSearchOpen(false, true);

@@ -19,7 +19,7 @@ Planejador de rotas e simulador de atividades no navegador. Você desenha o perc
 
 **Criar automaticamente**
 
-- Gerar circuito: escolha a distância e o app monta uma volta que sai e chega no mesmo ponto. Clicar de novo gera outra opção.
+- Na barra do mapa, marque a largada, informe a distância e toque em “Gerar circuito”. Com “Seguir ruas” ligado, a distância é aproximada. Toque de novo para gerar outra opção.
 - Formas prontas e texto em traço contínuo, na distância escolhida. Letras e números ficam conectados. As formas e o texto desativam “Seguir ruas” ao serem gerados para preservar o desenho.
 
 **Informações da rota**
@@ -36,6 +36,8 @@ Planejador de rotas e simulador de atividades no navegador. Você desenha o perc
 - Escolha entre modalidades a pé, aquáticas, coletivas, de raquete, de inverno, de ciclismo, de força e de dança, ou escreva um nome personalizado. Na natação, o ritmo é exibido em min/100 m.
 - Use “Limpar ajustes da simulação” para voltar aos valores automáticos.
 
+- Em “Ritmo e tempo por trecho”, ajuste os quilômetros individualmente. Se você editar o tempo geral da simulação, ele volta a definir o ritmo de todos os trechos.
+
 **Outros recursos**
 
 - Busca de lugares com sugestões enquanto você digita e botão para ir à sua localização.
@@ -44,7 +46,7 @@ Planejador de rotas e simulador de atividades no navegador. Você desenha o perc
 
 ## Exportação
 
-O botão "Baixar rota GPX" gera uma rota planejada: o traçado e a altimetria de cada ponto. O arquivo não contém horários, ritmo nem frequência cardíaca, porque representa um percurso a ser feito, não uma atividade realizada. As métricas simuladas aparecem no resumo da página.
+O botão “Baixar rota GPX” exporta o traçado e a altimetria disponível. Os ajustes por trecho ficam em uma extensão do GPX que o Fake Strava lê ao reimportar o arquivo.
 
 O GPX pode ser importado como rota ou percurso em aplicativos e relógios que aceitam esse formato. O botão “Baixar GPX e abrir Strava Web” baixa o arquivo e abre o criador de rotas, onde você pode selecioná-lo. O nome personalizado fica registrado no GPX.
 

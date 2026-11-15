@@ -6,7 +6,7 @@
     <title>Fake Strava - Planejador de rotas</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="styles.css?v=10" />
+    <link rel="stylesheet" href="styles.css?v=11" />
   </head>
   <body>
     <header class="topbar">
@@ -69,6 +69,17 @@
         <div id="routeMap" class="route-map" role="application" aria-label="Mapa: clique para adicionar pontos"></div>
 
         <div class="map-dock">
+          <form id="quickLoop" class="quick-loop">
+            <button class="text-button" id="pickStart" type="button" aria-pressed="false">Marcar largada</button>
+            <label class="quick-km">Distância (km)
+              <input id="quickKm" type="number" min="1" max="60" step="any" value="5" inputmode="decimal" required />
+            </label>
+            <button class="primary-outline" id="buildQuickLoop" type="submit">Gerar circuito</button>
+            <div class="quick-loop-feedback">
+              <span id="loopFeedback" role="status">Toque no mapa para marcar a largada.</span>
+              <a id="goToSplits" href="#routeSplits" hidden>Ajustar trechos</a>
+            </div>
+          </form>
           <div class="dock-summary">
             <strong id="dockDistance">0,00 km</strong>
             <span id="dockTime">0:00</span>
@@ -124,6 +135,18 @@
             <div><span>FC média</span><strong id="heartRateStat">—</strong></div>
             <div id="simulationDateCard" hidden><span>Data</span><strong id="dateStat"></strong></div>
           </div>
+        </section>
+
+        <section class="panel-section" id="routeSplits">
+          <h2>Ritmo e tempo por trecho</h2>
+          <p id="splitsNote" class="fine-print">Gere um circuito ou desenhe uma rota para ajustar os trechos.</p>
+          <div class="splits-scroll" id="splitsEditor" hidden>
+            <table class="splits">
+              <thead><tr><th scope="col">Trecho</th><th scope="col" id="splitPaceHead">Ritmo</th><th scope="col">Tempo</th></tr></thead>
+              <tbody id="splitsBody"></tbody>
+            </table>
+          </div>
+          <p id="splitTotal" class="fine-print" hidden></p>
         </section>
 
         <section class="panel-section">
@@ -214,23 +237,11 @@
           </div>
           <svg id="elevChart" viewBox="0 0 1000 230" role="img" aria-label="Gráfico de elevação ao longo da rota"></svg>
         </article>
-        <article class="chart-panel">
-          <div class="chart-heading">
-            <h2>Parciais da rota por km</h2>
-            <span id="splitsNote">Aparecem em rotas com 1 km ou mais.</span>
-          </div>
-          <div class="splits-scroll">
-            <table class="splits">
-              <thead><tr><th>Km</th><th>Subida</th><th>Descida</th><th>Tempo estimado</th></tr></thead>
-              <tbody id="splitsBody"></tbody>
-            </table>
-          </div>
-        </article>
       </section>
     </main>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="route-design.js"></script>
-    <script src="script.js?v=9"></script>
+    <script src="script.js?v=10"></script>
   </body>
 </html>

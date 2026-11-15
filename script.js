@@ -1630,7 +1630,6 @@ function init() {
   $("#zoomOut").addEventListener("click", () => map.zoomOut());
   $("#fitButton").addEventListener("click", fitRoute);
   $("#locateButton").addEventListener("click", locateMe);
-  $("#helpButton").addEventListener("click", () => $("#helpDialog").showModal());
   els.importInput.addEventListener("change", () => {
     const file = els.importInput.files?.[0];
     if (file) importGpx(file);

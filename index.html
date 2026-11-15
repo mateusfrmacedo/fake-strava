@@ -6,7 +6,7 @@
     <title>Fake Strava - Planejador de rotas</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="styles.css?v=9" />
+    <link rel="stylesheet" href="styles.css?v=10" />
   </head>
   <body>
     <header class="topbar">
@@ -19,9 +19,6 @@
           Importar GPX
         </label>
         <input id="importInput" type="file" accept=".gpx,application/gpx+xml,text/xml" hidden />
-        <button class="icon-button" id="helpButton" type="button" title="Ajuda" aria-label="Ajuda">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.1 9a3 3 0 1 1 5.82 1c-.46 1.25-1.92 1.88-2.46 2.86-.18.32-.24.7-.24 1.14"/><path d="M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg>
-        </button>
       </div>
     </header>
 
@@ -92,6 +89,43 @@
         <div class="panel-section mobile-simulation-link">
           <a class="text-button" href="#simulateActivity">Personalizar atividade</a>
         </div>
+        <section class="panel-section" id="simulateActivity">
+          <h2>Simular atividade</h2>
+          <div class="form-grid" aria-describedby="simulationHint">
+            <label class="full-span">Tipo de atividade
+              <select id="activity"></select>
+            </label>
+            <label class="full-span" id="customActivityField" hidden>Nome da atividade
+              <input id="customActivity" maxlength="60" placeholder="Ex.: Home office" />
+            </label>
+            <label>Distância (km)<input id="simulationDistance" inputmode="decimal" maxlength="12" /></label>
+            <label>Ganho de elevação (m)<input id="simulationGain" inputmode="decimal" maxlength="12" /></label>
+            <label id="paceField"><span id="paceLabel">Ritmo (min/km)</span><input id="paceInput" inputmode="decimal" maxlength="12" /></label>
+            <label>Tempo em movimento<input id="timeInput" maxlength="12" placeholder="h:mm:ss" /></label>
+            <label>Calorias (kcal)<input id="simulationCalories" inputmode="decimal" maxlength="12" /></label>
+            <label>FC média (bpm)<input id="simulationHeartRate" inputmode="decimal" maxlength="12" /></label>
+            <label>Data<input id="simulationDate" type="date" /></label>
+            <label>Seu peso (kg)<input id="weightInput" type="number" min="30" max="200" step="1" value="70" /></label>
+            <label class="check-row full-span"><input id="climbToggle" type="checkbox" /> Considerar a subida no tempo calculado pelo ritmo</label>
+          </div>
+          <p class="fine-print" id="simulationHint">Use o mapa ou digite a distância. Campos vazios usam os valores automáticos. Edite o ritmo ou o tempo para recalcular o outro. Use 0:30:00 para 30 minutos. A frequência cardíaca automática é um valor simulado.</p>
+          <button class="text-button" id="resetSimulation" type="button">Limpar ajustes da simulação</button>
+        </section>
+
+        <section class="panel-section">
+          <h2>Resumo da simulação</h2>
+          <p class="fine-print" id="activitySummary"></p>
+          <div class="stats-grid">
+            <div><span>Distância</span><strong id="distanceStat">—</strong></div>
+            <div><span>Tempo em movimento</span><strong id="durationStat">—</strong></div>
+            <div><span id="avgLabel">Ritmo médio</span><strong id="avgStat">—</strong></div>
+            <div><span>Ganho de elevação</span><strong id="gainStat">—</strong></div>
+            <div><span>Calorias</span><strong id="kcalStat">—</strong></div>
+            <div><span>FC média</span><strong id="heartRateStat">—</strong></div>
+            <div id="simulationDateCard" hidden><span>Data</span><strong id="dateStat"></strong></div>
+          </div>
+        </section>
+
         <section class="panel-section">
           <h2>Como desenhar</h2>
           <div class="segmented" role="group" aria-label="Modo de desenho">
@@ -149,43 +183,6 @@
           <p class="fine-print" id="routeTextHint">Até 16 letras, números ou espaços. O traçado liga os caracteres em uma única rota.</p>
         </section>
 
-        <section class="panel-section" id="simulateActivity">
-          <h2>Simular atividade</h2>
-          <div class="form-grid" aria-describedby="simulationHint">
-            <label class="full-span">Tipo de atividade
-              <select id="activity"></select>
-            </label>
-            <label class="full-span" id="customActivityField" hidden>Nome da atividade
-              <input id="customActivity" maxlength="60" placeholder="Ex.: Home office" />
-            </label>
-            <label>Distância (km)<input id="simulationDistance" inputmode="decimal" maxlength="12" /></label>
-            <label>Ganho de elevação (m)<input id="simulationGain" inputmode="decimal" maxlength="12" /></label>
-            <label id="paceField"><span id="paceLabel">Ritmo (min/km)</span><input id="paceInput" inputmode="decimal" maxlength="12" /></label>
-            <label>Tempo em movimento<input id="timeInput" maxlength="12" placeholder="h:mm:ss" /></label>
-            <label>Calorias (kcal)<input id="simulationCalories" inputmode="decimal" maxlength="12" /></label>
-            <label>FC média (bpm)<input id="simulationHeartRate" inputmode="decimal" maxlength="12" /></label>
-            <label>Data<input id="simulationDate" type="date" /></label>
-            <label>Seu peso (kg)<input id="weightInput" type="number" min="30" max="200" step="1" value="70" /></label>
-            <label class="check-row full-span"><input id="climbToggle" type="checkbox" /> Considerar a subida no tempo calculado pelo ritmo</label>
-          </div>
-          <p class="fine-print" id="simulationHint">Use o mapa ou digite a distância. Campos vazios usam os valores automáticos. Edite o ritmo ou o tempo para recalcular o outro. Use 0:30:00 para 30 minutos. A frequência cardíaca automática é um valor simulado.</p>
-          <button class="text-button" id="resetSimulation" type="button">Limpar ajustes da simulação</button>
-        </section>
-
-        <section class="panel-section">
-          <h2>Resumo da simulação</h2>
-          <p class="fine-print" id="activitySummary"></p>
-          <div class="stats-grid">
-            <div><span>Distância</span><strong id="distanceStat">—</strong></div>
-            <div><span>Tempo em movimento</span><strong id="durationStat">—</strong></div>
-            <div><span id="avgLabel">Ritmo médio</span><strong id="avgStat">—</strong></div>
-            <div><span>Ganho de elevação</span><strong id="gainStat">—</strong></div>
-            <div><span>Calorias</span><strong id="kcalStat">—</strong></div>
-            <div><span>FC média</span><strong id="heartRateStat">—</strong></div>
-            <div id="simulationDateCard" hidden><span>Data</span><strong id="dateStat"></strong></div>
-          </div>
-        </section>
-
         <section class="panel-section">
           <h2>Dados da rota</h2>
           <div class="stats-grid">
@@ -232,24 +229,8 @@
       </section>
     </main>
 
-    <dialog id="helpDialog">
-      <form method="dialog">
-        <button class="close-dialog" aria-label="Fechar">&times;</button>
-        <h2>Como montar uma rota</h2>
-        <ul>
-          <li><strong>Clique no mapa</strong> para marcar a largada e os próximos pontos. Com "Seguir ruas" ligado, cada trecho acompanha o caminho real.</li>
-          <li><strong>Arraste</strong> qualquer ponto para ajustar. <strong>Clique na linha</strong> para criar um ponto de desvio e arrastá-lo.</li>
-          <li><strong>Clique em um ponto</strong> para removê-lo. Clicar na largada fecha o circuito.</li>
-          <li><strong>Desenho livre</strong>: segure e arraste para riscar o trajeto; ele vira pontos editáveis.</li>
-          <li><strong>Gerar circuito</strong> cria sozinho uma volta com a distância desejada.</li>
-          <li>Em <strong>Simular atividade</strong>, edite as métricas ou deixe os campos vazios para usar os valores automáticos. O botão de exportação baixa a rota GPX.</li>
-          <li>Ctrl+Z desfaz, Ctrl+Shift+Z refaz. O rascunho fica salvo neste navegador.</li>
-        </ul>
-      </form>
-    </dialog>
-
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="route-design.js"></script>
-    <script src="script.js?v=8"></script>
+    <script src="script.js?v=9"></script>
   </body>
 </html>

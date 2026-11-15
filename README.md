@@ -17,6 +17,8 @@ Planejador de rotas e simulador de atividades no navegador. Você desenha o perc
 - Desenho livre: segure e arraste para riscar o trajeto, que vira pontos editáveis.
 - Desfazer e refazer (Ctrl+Z / Ctrl+Shift+Z), fechar circuito, ida e volta, inverter o sentido e limpar.
 
+- Em “Piso”, escolha ruas pavimentadas, estradas de terra ou ambos. Os filtros exclusivos aceitam apenas trechos cujo piso está cadastrado no OpenStreetMap.
+
 **Criar automaticamente**
 
 - Na barra do mapa, marque a largada, informe a distância e toque em “Gerar circuito”. Com “Seguir ruas” ligado, a distância é aproximada. Toque de novo para gerar outra opção.
@@ -70,6 +72,7 @@ O app consulta serviços públicos e gratuitos direto do navegador. Eles têm li
 | --- | --- |
 | Mapa | [Leaflet](https://leafletjs.com/) com blocos do [OpenStreetMap](https://www.openstreetmap.org/copyright) |
 | Rotas pelas ruas | OSRM em `routing.openstreetmap.de` (FOSSGIS), com `router.project-osrm.org` como reserva |
+| Piso pavimentado ou de terra | [BRouter](https://brouter.de/) com dados do OpenStreetMap |
 | Altimetria | [Open-Meteo Elevation API](https://open-meteo.com/en/docs/elevation-api) |
 | Busca de lugares | [Photon](https://photon.komoot.io/), com Nominatim como reserva |
 

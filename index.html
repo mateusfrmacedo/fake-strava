@@ -6,7 +6,7 @@
     <title>Fake Strava - Planejador de rotas</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="styles.css?v=11" />
+    <link rel="stylesheet" href="styles.css?v=12" />
   </head>
   <body>
     <header class="topbar">
@@ -75,6 +75,13 @@
               <input id="quickKm" type="number" min="1" max="60" step="any" value="5" inputmode="decimal" required />
             </label>
             <button class="primary-outline" id="buildQuickLoop" type="submit">Gerar circuito</button>
+            <label class="quick-surface" for="routeSurface">Piso
+              <select id="routeSurface">
+                <option value="both">Ambos</option>
+                <option value="paved">Só ruas pavimentadas</option>
+                <option value="dirt">Só estradas de terra</option>
+              </select>
+            </label>
             <div class="quick-loop-feedback">
               <span id="loopFeedback" role="status">Toque no mapa para marcar a largada.</span>
               <a id="goToSplits" href="#routeSplits" hidden>Ajustar trechos</a>
@@ -246,6 +253,7 @@
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="route-design.js"></script>
-    <script src="script.js?v=14"></script>
+    <script src="route-surface.js"></script>
+    <script src="script.js?v=15"></script>
   </body>
 </html>

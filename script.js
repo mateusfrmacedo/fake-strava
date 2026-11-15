@@ -97,6 +97,7 @@ const els = {
   search: $("#locationSearch"),
   suggestions: $("#suggestions"),
   snap: $("#snapToggle"),
+  surface: $("#routeSurface"),
   targetKm: $("#targetKm"),
   quickKm: $("#quickKm"),
   quickLoop: $("#buildQuickLoop"),
@@ -495,8 +496,8 @@ function updateSplit(event) {
 
 /* ---------- roteamento ---------- */
 
-function legKey(a, b, profile = activityConfig().profile) {
-  return `${profile}|${a.lat.toFixed(5)},${a.lng.toFixed(5)}|${b.lat.toFixed(5)},${b.lng.toFixed(5)}`;
+function legKey(a, b, profile = activityConfig().profile, surface = els.surface.value) {
+  return `${profile}|${surface}|${a.lat.toFixed(5)},${a.lng.toFixed(5)}|${b.lat.toFixed(5)},${b.lng.toFixed(5)}`;
 }
 
 async function fetchJson(url, timeoutMs = 10_000) {
@@ -512,7 +513,8 @@ async function fetchJson(url, timeoutMs = 10_000) {
 }
 
 /* Uma chamada para vários pontos; devolve a geometria de cada trecho. */
-async function fetchLegs(points, profile, allowDrivingFallback = true) {
+async function fetchLegs(points, profile, allowDrivingFallback = true, surface = els.surface.value) {
+  if (surface !== "both") return fetchSurfaceLegs(points, profile, surface);
   const coordinates = points.map((p) => `${p.lng.toFixed(6)},${p.lat.toFixed(6)}`).join(";");
   const query = "?overview=false&steps=true&geometries=geojson&continue_straight=false";
   const servers = [
@@ -542,8 +544,8 @@ async function fetchLegs(points, profile, allowDrivingFallback = true) {
   throw lastError || new Error("Roteamento indisponível");
 }
 
-function storeLegs(points, legs, profile) {
-  legs.forEach((line, index) => legCache.set(legKey(points[index], points[index + 1], profile), line));
+function storeLegs(points, legs, profile, surface) {
+  legs.forEach((line, index) => legCache.set(legKey(points[index], points[index + 1], profile, surface), line));
 }
 
 /* Busca só os trechos que ainda não estão no cache, agrupando vizinhos. */
@@ -554,9 +556,11 @@ function followsStreets() {
 async function ensureRouting() {
   if (!followsStreets() || state.waypoints.length < 2) return;
   const profile = activityConfig().profile;
+  const surface = els.surface.value;
+  const revision = routeRevision;
   const points = state.waypoints.map(copyPoint);
   const missing = (i) => {
-    const key = legKey(points[i], points[i + 1], profile);
+    const key = legKey(points[i], points[i + 1], profile, surface);
     return !legCache.has(key) && !pendingLegs.has(key) && !failedLegs.has(key);
   };
 
@@ -578,10 +582,10 @@ async function ensureRouting() {
   let failed = false;
   await Promise.all(
     runs.map(async (run) => {
-      const keys = run.slice(0, -1).map((p, index) => legKey(p, run[index + 1], profile));
+      const keys = run.slice(0, -1).map((p, index) => legKey(p, run[index + 1], profile, surface));
       keys.forEach((key) => pendingLegs.add(key));
       try {
-        storeLegs(run, await fetchLegs(run, profile), profile);
+        storeLegs(run, await fetchLegs(run, profile, true, surface), profile, surface);
       } catch (error) {
         failed = true;
         keys.forEach((key) => failedLegs.add(key));
@@ -592,7 +596,12 @@ async function ensureRouting() {
     })
   );
 
-  if (failed) setStatus("Não consegui seguir as ruas em algum trecho; ele ficou em linha reta.", "error");
+  if (revision !== routeRevision) return;
+  if (failed) {
+    const message = surface === "both" ? "Não consegui seguir as ruas em algum trecho; ele ficou em linha reta."
+      : "Não consegui confirmar esse piso em todos os trechos. Mude os pontos ou selecione Ambos.";
+    setStatus(message, "error");
+  }
   else if (!pendingLegs.size) setStatus(defaultHint(), "success");
 }
 
@@ -603,12 +612,14 @@ function buildRoute() {
   const coords = [];
   const legOf = [];
   const snap = followsStreets();
+  let surfaceVerified = true;
   if (points.length === 1) {
     coords.push(points[0]);
     legOf.push(0);
   }
   for (let i = 0; i < points.length - 1; i += 1) {
     const cached = snap ? legCache.get(legKey(points[i], points[i + 1])) : null;
+    if (snap && els.surface.value !== "both" && !cached) surfaceVerified = false;
     const line = cached || [points[i], points[i + 1]];
     line.forEach((p, index) => {
       if (index === 0 && coords.length) return;
@@ -618,12 +629,13 @@ function buildRoute() {
   }
   const cum = [0];
   for (let i = 1; i < coords.length; i += 1) cum.push(cum[i - 1] + haversine(coords[i - 1], coords[i]));
-  route = { coords, cum, legOf, distance: cum[cum.length - 1] || 0 };
+  route = { coords, cum, legOf, distance: cum[cum.length - 1] || 0, surfaceVerified };
 }
 
 function refresh(light = false) {
   buildRoute();
   routeLine.setLatLngs(route.coords);
+  routeLine.setStyle({ dashArray: route.surfaceVerified ? null : "6 6" });
   hitLine.setLatLngs(route.coords);
   if (!light) {
     renderMarkers();
@@ -933,6 +945,7 @@ async function generateLoop() {
   const start = state.waypoints[0] ? copyPoint(state.waypoints[0]) : { lat: center.lat, lng: center.lng };
   const profile = activityConfig().profile;
   const snapPreference = followStreetsByDefault;
+  const surface = els.surface.value;
   const snap = snapPreference && Boolean(profile);
   let bearing = Math.random() * Math.PI * 2;
   const direction = Math.random() < 0.5 ? 1 : -1;
@@ -963,11 +976,13 @@ async function generateLoop() {
       let legs = null;
       try {
         if (snap) {
-          legs = await fetchLegs(points, profile, false);
-          const first = legs[0];
-          const last = legs[legs.length - 1];
-          if (haversine(start, first[0]) > 0.1) first.unshift(start);
-          if (haversine(last[last.length - 1], start) > 0.1) last.push(start);
+          legs = await fetchLegs(points, profile, false, surface);
+          if (surface === "both") {
+            const first = legs[0];
+            const last = legs[legs.length - 1];
+            if (haversine(start, first[0]) > 0.1) first.unshift(start);
+            if (haversine(last[last.length - 1], start) > 0.1) last.push(start);
+          }
         }
       } catch (error) {
         bearing += Math.PI / 2;
@@ -984,12 +999,13 @@ async function generateLoop() {
       return;
     }
     if (!best) {
-      const message = "Não encontrei um circuito. Tente outra largada ou distância.";
+      const message = surface === "both" ? "Não encontrei um circuito. Tente outra largada ou distância."
+        : "Não encontrei um circuito com esse piso. Tente outra largada ou selecione Ambos.";
       feedback.textContent = message;
       setStatus(message, "error");
       return;
     }
-    if (best.legs) storeLegs(best.points, best.legs, profile);
+    if (best.legs) storeLegs(best.points, best.legs, profile, surface);
     commit(() => {
       els.snap.checked = snapPreference;
       state.waypoints = best.points;
@@ -1269,7 +1285,7 @@ function updateButtons() {
   els.back.disabled = count < 2;
   els.reverse.disabled = count < 2;
   els.clear.disabled = count === 0;
-  els.download.disabled = route.coords.length < 2;
+  els.download.disabled = route.coords.length < 2 || !route.surfaceVerified;
   $("#stravaRoutes").disabled = els.download.disabled;
   $("#stravaActivity").disabled = els.download.disabled;
   if (!busy) $("#loopFeedback").textContent = pickingStart ? "Toque no mapa para escolher a largada."
@@ -1298,6 +1314,7 @@ function applyActivity() {
   els.pace.value = parseClock(els.time.value) ? "" : paceByActivity[els.activity.value];
   els.pace.removeAttribute("aria-invalid");
   els.snap.disabled = !config.profile;
+  els.surface.disabled = !config.profile;
   els.climb.disabled = !config.climb;
 }
 
@@ -1594,7 +1611,7 @@ ${points}
 }
 
 function downloadGpx(clock = null) {
-  if (route.coords.length < 2) return;
+  if (els.download.disabled) return;
   const blob = new Blob([createGpx(clock)], { type: "application/gpx+xml" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
@@ -1666,6 +1683,7 @@ function saveDraft() {
         waypoints: state.waypoints,
         snap: els.snap.checked,
         followStreetsByDefault,
+        surface: els.surface.value,
         splits: state.splits,
         activity: els.activity.value,
         customActivity: els.customActivity.value,
@@ -1697,6 +1715,7 @@ function loadDraft() {
       if (!/^\d+$/.test(index) || !["pace", "time"].includes(entry?.field) || typeof entry.value !== "string") continue;
       state.splits[index] = entry;
     }
+    if (Object.hasOwn(ROUTE_SURFACES, draft.surface)) els.surface.value = draft.surface;
     if (typeof draft.followStreetsByDefault === "boolean") followStreetsByDefault = draft.followStreetsByDefault;
     els.snap.checked = state.waypoints.length && typeof draft.snap === "boolean" ? draft.snap : followStreetsByDefault;
     if (typeof draft.customActivity === "string") els.customActivity.value = draft.customActivity;
@@ -1822,8 +1841,16 @@ function init() {
     window.open("https://www.strava.com/upload/select", "_blank", "noopener");
   });
 
+  els.surface.addEventListener("change", () => {
+    if (els.surface.value !== "both") {
+      els.snap.checked = true;
+      followStreetsByDefault = true;
+    }
+    afterChange();
+  });
   els.snap.addEventListener("change", () => {
     followStreetsByDefault = els.snap.checked;
+    if (!els.snap.checked) els.surface.value = "both";
     afterChange();
     if (!els.snap.checked) setStatus("Linhas retas entre os pontos.");
   });

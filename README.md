@@ -48,7 +48,7 @@ Planejador de rotas e simulador de atividades no navegador. Você desenha o perc
 
 O botão “Baixar rota GPX” exporta o traçado e a altimetria disponível. Os ajustes por trecho ficam em uma extensão do GPX que o Fake Strava lê ao reimportar o arquivo.
 
-O GPX pode ser importado como rota ou percurso em aplicativos e relógios que aceitam esse formato. O botão “Baixar GPX e abrir Minhas rotas” abre o criador de rotas do Strava. “Baixar GPX de atividade simulada” inclui horários gerados a partir do tempo planejado e abre a página de envio de atividades. Em ambos os casos, selecione o arquivo baixado no Strava. O nome personalizado fica registrado no GPX.
+O GPX pode ser importado como rota ou percurso em aplicativos e relógios que aceitam esse formato. O botão “Baixar GPX e abrir Minhas rotas” abre o criador de rotas do Strava. “Baixar GPX de atividade simulada” usa o nome da modalidade e o horário de início escolhido, inclui os horários dos pontos e abre a página de envio de atividades. Em ambos os casos, selecione o arquivo baixado no Strava. O nome personalizado fica registrado no GPX.
 
 ## Como usar
 

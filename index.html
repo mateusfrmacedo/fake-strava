@@ -115,7 +115,8 @@
             <label>Tempo em movimento<input id="timeInput" maxlength="12" placeholder="h:mm:ss" /></label>
             <label>Calorias (kcal)<input id="simulationCalories" inputmode="decimal" maxlength="12" /></label>
             <label>FC média (bpm)<input id="simulationHeartRate" inputmode="decimal" maxlength="12" /></label>
-            <label>Data<input id="simulationDate" type="date" /></label>
+            <label>Data de início<input id="simulationDate" type="date" /></label>
+            <label>Hora de início<input id="simulationStartTime" type="time" /></label>
             <label>Seu peso (kg)<input id="weightInput" type="number" min="30" max="200" step="1" value="70" /></label>
             <label class="check-row full-span"><input id="climbToggle" type="checkbox" /> Considerar a subida no tempo calculado pelo ritmo</label>
           </div>
@@ -133,7 +134,7 @@
             <div><span>Ganho de elevação</span><strong id="gainStat">—</strong></div>
             <div><span>Calorias</span><strong id="kcalStat">—</strong></div>
             <div><span>FC média</span><strong id="heartRateStat">—</strong></div>
-            <div id="simulationDateCard" hidden><span>Data</span><strong id="dateStat"></strong></div>
+            <div id="simulationDateCard" hidden><span>Início</span><strong id="dateStat"></strong></div>
           </div>
         </section>
 
@@ -245,6 +246,6 @@
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="route-design.js"></script>
-    <script src="script.js?v=12"></script>
+    <script src="script.js?v=13"></script>
   </body>
 </html>

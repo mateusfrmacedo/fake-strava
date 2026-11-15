@@ -131,6 +131,7 @@ const simulationFields = {
   calories: $("#simulationCalories"),
   heartRate: $("#simulationHeartRate"),
   date: $("#simulationDate"),
+  startTime: $("#simulationStartTime"),
   time: els.time,
 };
 const modeButtons = [...document.querySelectorAll("[data-mode]")];
@@ -373,6 +374,7 @@ function renderSimulation(totals, splitPlan) {
   const automaticHeartRate = seconds > 0 && activity.kind !== "time" ? (activity.heartRate || (activity.kind === "speed" ? 135 : 150)) : null;
   const heartRate = readSimulationField(simulationFields.heartRate, readNumber) ?? automaticHeartRate;
   const date = simulationFields.date.value;
+  const startTime = simulationFields.startTime.value;
 
   simulationFields.distance.placeholder = routeKm > 0 ? routeKm.toFixed(2).replace(".", ",") : "0,00";
   simulationFields.gain.placeholder = automaticGain === null ? "Automático" : String(Math.round(automaticGain));
@@ -391,8 +393,9 @@ function renderSimulation(totals, splitPlan) {
   $("#avgStat").textContent = average ? formatAverage(average) : "—";
   $("#kcalStat").textContent = calories === null ? "—" : `${Math.round(calories)} kcal`;
   $("#heartRateStat").textContent = heartRate === null ? "—" : `${Math.round(heartRate)} bpm`;
-  $("#simulationDateCard").hidden = !date;
-  $("#dateStat").textContent = date.split("-").reverse().join("/");
+  $("#simulationDateCard").hidden = !date && !startTime;
+  const chosenDate = date || (startTime ? localDateTime(Date.now()).slice(0, 10) : "");
+  $("#dateStat").textContent = [chosenDate.split("-").reverse().join("/"), startTime].filter(Boolean).join(" ");
 }
 
 function calculateSplits(perKm) {
@@ -1478,6 +1481,11 @@ function locateMe() {
 
 /* ---------- GPX ---------- */
 
+function localDateTime(timestamp) {
+  const date = new Date(timestamp);
+  return new Date(timestamp - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
+}
+
 function buildActivityClock() {
   const { rows, total } = calculateSplits(routePace(elevationTotals()));
   const manualTime = parseClock(els.time.value);
@@ -1489,14 +1497,20 @@ function buildActivityClock() {
   const latestStart = Date.now() - duration * 1000;
   let start = latestStart;
   const date = simulationFields.date.value;
-  if (date) {
+  const time = simulationFields.startTime.value;
+  if (time) {
+    const local = `${date || localDateTime(Date.now()).slice(0, 10)}T${time}`;
+    start = new Date(local).getTime();
+    if (!Number.isFinite(start) || localDateTime(start) !== local) throw new Error("Confira a data e a hora de início.");
+    if (start > latestStart) throw new Error("O horário escolhido precisa deixar a atividade terminar antes de agora.");
+  } else if (date) {
     const day = new Date(`${date}T00:00:00`);
     if (day.getTime() > latestStart) throw new Error("Escolha uma data em que a atividade já teria terminado.");
     day.setHours(12);
     start = Math.min(day.getTime(), latestStart);
   }
   start = Math.floor(start / 1000) * 1000;
-  if (!Number.isFinite(new Date(start).getTime())) throw new Error("Confira a data e o tempo em movimento.");
+  if (!Number.isFinite(new Date(start).getTime())) throw new Error("Confira a data, a hora e o tempo em movimento.");
 
   const uniform = total <= 0 || rows.some((row) => row.seconds <= 0);
   let elapsed = 0;
@@ -1518,10 +1532,17 @@ function buildActivityClock() {
   };
 }
 
-function createGpx(clock = null) {
+function gpxName(simulated) {
+  if (simulated) return activityName();
   const custom = els.activity.value === "custom" ? els.customActivity.value.trim() : "";
   const routeName = els.routeName.value.trim();
-  const name = escapeXml(custom && routeName === els.routeName.defaultValue ? custom : routeName || custom || "Minha rota");
+  if (custom && routeName === els.routeName.defaultValue) return custom;
+  return routeName || custom || "Minha rota";
+}
+
+function createGpx(clock = null) {
+  const custom = els.activity.value === "custom" ? els.customActivity.value.trim() : "";
+  const name = escapeXml(gpxName(Boolean(clock)));
   const type = escapeXml(custom || activityConfig().gpxType);
   const description = els.description.value.trim();
   const desc = [clock ? "Atividade simulada no Fake Strava." : "", description].filter(Boolean).join(" ");
@@ -1554,10 +1575,10 @@ function createGpx(clock = null) {
   return `<?xml version="1.0" encoding="UTF-8"?>
 <gpx version="1.1" creator="Fake Strava" xmlns="http://www.topografix.com/GPX/1/1">
   <metadata>
-    <name>${clock ? "Simulação - " : ""}${name}</name>${desc ? `\n    <desc>${escapeXml(desc)}</desc>` : ""}
+    <name>${name}</name>${desc ? `\n    <desc>${escapeXml(desc)}</desc>` : ""}${clock ? `\n    <time>${new Date(clock.start).toISOString()}</time>` : ""}
   </metadata>
   <trk>
-    <name>${clock ? "Simulação - " : ""}${name}</name>
+    <name>${name}</name>
     <type>${type}</type>${plan}
     <trkseg>
 ${points}
@@ -1572,16 +1593,15 @@ function downloadGpx(clock = null) {
   const blob = new Blob([createGpx(clock)], { type: "application/gpx+xml" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
-  const customName = els.activity.value === "custom" ? els.customActivity.value.trim() : "";
-  const routeName = els.routeName.value.trim();
-  const safeName = (customName && routeName === els.routeName.defaultValue ? customName : routeName || customName || "rota")
+  const safeName = gpxName(Boolean(clock))
     .toLowerCase()
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "");
   link.href = url;
-  link.download = `${clock ? "simulacao-" : ""}${safeName || "rota"}.gpx`;
+  const stamp = clock ? localDateTime(clock.start).replace("T", "_").replace(":", "-") : "";
+  link.download = clock ? `simulacao-${safeName || "atividade"}-${stamp}.gpx` : `${safeName || "rota"}.gpx`;
   document.body.append(link);
   link.click();
   link.remove();
@@ -1790,7 +1810,8 @@ function init() {
       return;
     }
     downloadGpx(clock);
-    status.textContent = "Selecione o arquivo com o prefixo simulacao- na página de envio.";
+    const label = new Date(clock.start).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+    status.textContent = `${activityName()} · ${label}. Selecione o arquivo baixado na página de envio.`;
     window.open("https://www.strava.com/upload/select", "_blank", "noopener");
   });
 

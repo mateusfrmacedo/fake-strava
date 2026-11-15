@@ -261,7 +261,7 @@ function defaultHint() {
   if (state.mode === "free") return "Segure e arraste no mapa para riscar o trajeto.";
   if (count === 0) return "Clique no mapa para marcar a largada.";
   if (count === 1) return "Agora clique no próximo ponto. A rota se liga sozinha.";
-  return "Arraste um ponto para ajustar ou clique na linha para criar um desvio.";
+  return "";
 }
 
 /* ---------- ritmo e tempo ---------- */
@@ -1230,7 +1230,7 @@ function setSearchOpen(open, focus = false) {
 function goToPlace(lat, lng, label, zoom = 15) {
   map.setView([lat, lng], zoom);
   setSearchOpen(false, els.searchForm.contains(document.activeElement));
-  setStatus(`Mapa em ${label}. ${defaultHint()}`, "success");
+  setStatus(`Mapa em ${label}. ${defaultHint()}`.trimEnd(), "success");
 }
 
 async function loadSuggestions(text, mode) {

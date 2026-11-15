@@ -1,6 +1,8 @@
-# Traçado GPX
+# Fake Strava
 
 Planejador de rotas no navegador para corrida, caminhada e pedal. Você desenha o percurso no mapa, vê distância, tempo estimado e altimetria, e baixa um arquivo GPX para seguir no relógio ou no celular.
+
+[Acesse o Fake Strava](https://mateusfrmacedo.github.io/fake-strava/).
 
 É um site estático (HTML, CSS e JavaScript puro), sem etapa de build e sem servidor próprio.
 
@@ -69,7 +71,8 @@ Os dados de mapa são © colaboradores do OpenStreetMap.
 index.html   estrutura da página
 styles.css   aparência
 script.js    mapa, edição da rota, roteamento, altimetria e exportação
-favicon.svg  ícone
+favicon.svg           ícone
+logo-fake-strava.webp logo do cabeçalho
 ```
 
 ## Limitações conhecidas

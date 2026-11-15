@@ -1,6 +1,6 @@
 "use strict";
 
-/* Traçado GPX: planejador de rotas.
+/* Fake Strava: planejador de rotas.
    Estado = lista de pontos de passagem (waypoints). A geometria de cada trecho
    vem de um cache indexado pelas coordenadas, então a tela é sempre derivada de
    "waypoints + cache" e respostas atrasadas da rede nunca bagunçam a rota. */
@@ -1129,7 +1129,7 @@ function createGpx() {
     })
     .join("\n");
   return `<?xml version="1.0" encoding="UTF-8"?>
-<gpx version="1.1" creator="Traçado GPX" xmlns="http://www.topografix.com/GPX/1/1">
+<gpx version="1.1" creator="Fake Strava" xmlns="http://www.topografix.com/GPX/1/1">
   <metadata>
     <name>${name}</name>${desc ? `\n    <desc>${escapeXml(desc)}</desc>` : ""}
   </metadata>

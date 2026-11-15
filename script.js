@@ -99,6 +99,8 @@ const els = {
   targetKm: $("#targetKm"),
   targetRange: $("#targetRange"),
   autoLoop: $("#autoLoop"),
+  shape: $("#routeShape"),
+  drawShape: $("#drawShape"),
   routeName: $("#routeName"),
   activity: $("#activity"),
   customActivity: $("#customActivity"),
@@ -128,7 +130,6 @@ const simulationFields = {
   time: els.time,
 };
 const modeButtons = [...document.querySelectorAll("[data-mode]")];
-const shapeButtons = [...document.querySelectorAll("[data-shape]")];
 
 const state = { waypoints: [], mode: "click" };
 const paceByActivity = Object.fromEntries(Object.entries(ACTIVITIES).map(([key, config]) => [key, config.fallback]));
@@ -823,9 +824,8 @@ function setBusy(value) {
   busy = value;
   els.autoLoop.disabled = value;
   $("#writeRoute").disabled = value;
-  shapeButtons.forEach((button) => {
-    button.disabled = value;
-  });
+  els.shape.disabled = value;
+  els.drawShape.disabled = value;
 }
 
 /* Circuito com a distância pedida: distribui pontos num círculo que passa
@@ -1535,9 +1535,11 @@ function init() {
   setupChartHover();
 
   modeButtons.forEach((button) => button.addEventListener("click", () => setMode(button.dataset.mode)));
-  shapeButtons.forEach((button) => button.addEventListener("click", () => {
-    createDesign(unitShape(button.dataset.shape), "Forma traçada no mapa.");
-  }));
+  $("#shapeForm").addEventListener("submit", (event) => {
+    event.preventDefault();
+    if (!els.shape.value) return;
+    createDesign(unitShape(els.shape.value), "Forma traçada no mapa.");
+  });
   $("#routeTextForm").addEventListener("submit", writeRoute);
   $("#routeText").addEventListener("input", (event) => event.target.setCustomValidity(""));
   $("#drawOnMap").addEventListener("click", () => setMode(state.mode === "free" ? "click" : "free"));

@@ -110,7 +110,6 @@ svg {
 
 .icon-button svg,
 .text-button svg,
-.mode-card svg,
 .segmented svg,
 .primary-outline svg,
 .download-button svg,
@@ -602,37 +601,16 @@ svg {
   margin: -4px 14px 14px;
 }
 
-.shape-grid {
+.shape-picker {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 4px;
-}
-
-.mode-card {
-  display: flex;
-  min-height: 40px;
-  padding: 0 4px;
-  align-items: center;
-  justify-content: center;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 6px;
-  border: 1px solid var(--border);
-  border-radius: 7px;
-  background: var(--surface-soft);
-  color: #33342f;
-  font-size: 12px;
-  font-weight: 700;
 }
 
-.mode-card svg {
-  width: 15px;
-  height: 15px;
-  flex: 0 0 auto;
-}
-
-.mode-card:not(:disabled):hover {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-  color: var(--accent-dark);
+.shape-picker select {
+  min-height: 38px;
+  padding: 0 8px;
+  font-size: 14px;
 }
 
 input,
@@ -993,6 +971,7 @@ dialog li + li {
   }
 
   .search-input-row input,
+  .shape-picker select,
   .form-grid input,
   .form-grid select,
   .form-grid textarea {

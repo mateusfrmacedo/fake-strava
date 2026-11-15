@@ -6,7 +6,7 @@
     <title>Fake Strava - Planejador de rotas</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="styles.css?v=8" />
+    <link rel="stylesheet" href="styles.css?v=9" />
   </head>
   <body>
     <header class="topbar">
@@ -125,44 +125,21 @@
             Gerar circuito
           </button>
           <p class="fine-print">Sai da largada (ou do centro do mapa) e volta ao mesmo ponto. Clique de novo para outra opção.</p>
-          <div class="shape-grid">
-            <button type="button" class="mode-card" data-shape="heart">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 1 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>
-              Coração
-            </button>
-            <button type="button" class="mode-card" data-shape="circle">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/></svg>
-              Círculo
-            </button>
-            <button type="button" class="mode-card" data-shape="star">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.7 5.8 6.3.8-4.6 4.4 1.2 6.3L12 17.2 6.4 20.3l1.2-6.3L3 9.6l6.3-.8z"/></svg>
-              Estrela
-            </button>
-            <button type="button" class="mode-card" data-shape="triangle">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4 21 20H3Z"/></svg>
-              Triângulo
-            </button>
-            <button type="button" class="mode-card" data-shape="square">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14v14H5Z"/></svg>
-              Quadrado
-            </button>
-            <button type="button" class="mode-card" data-shape="diamond">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 9 9-9 9-9-9z"/></svg>
-              Losango
-            </button>
-            <button type="button" class="mode-card" data-shape="hexagon">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h10l5 8-5 8H7l-5-8z"/></svg>
-              Hexágono
-            </button>
-            <button type="button" class="mode-card" data-shape="arrow">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 9 9h-5v9H8v-9H3z"/></svg>
-              Seta
-            </button>
-            <button type="button" class="mode-card" data-shape="lightning">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m13 3-8 11h6l-1 7 9-12h-6z"/></svg>
-              Raio
-            </button>
-          </div>
+          <form id="shapeForm" class="shape-picker">
+            <select id="routeShape" aria-label="Forma da rota" required>
+              <option value="" selected disabled>Escolha uma forma</option>
+              <option value="heart">Coração</option>
+              <option value="circle">Círculo</option>
+              <option value="star">Estrela</option>
+              <option value="triangle">Triângulo</option>
+              <option value="square">Quadrado</option>
+              <option value="diamond">Losango</option>
+              <option value="hexagon">Hexágono</option>
+              <option value="arrow">Seta</option>
+              <option value="lightning">Raio</option>
+            </select>
+            <button class="text-button" id="drawShape" type="submit">Traçar forma</button>
+          </form>
           <form id="routeTextForm" class="form-grid route-details" aria-describedby="routeTextHint">
             <label class="full-span">Texto no mapa
               <input id="routeText" required maxlength="16" placeholder="Ex.: OLA" autocomplete="off" />
@@ -273,6 +250,6 @@
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="route-design.js"></script>
-    <script src="script.js?v=7"></script>
+    <script src="script.js?v=8"></script>
   </body>
 </html>

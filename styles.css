@@ -150,6 +150,7 @@ svg {
 .app-shell {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 372px;
+  grid-template-rows: auto 1fr;
   grid-template-areas:
     "map panel"
     "charts panel";
@@ -165,7 +166,7 @@ svg {
   position: relative;
   grid-area: map;
   overflow: hidden;
-  min-height: 600px;
+  height: clamp(360px, 46svh, 460px);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: #e9ece4;
@@ -175,7 +176,6 @@ svg {
 .route-map {
   width: 100%;
   height: 100%;
-  min-height: 600px;
   z-index: 1;
   cursor: crosshair;
 }
@@ -200,7 +200,6 @@ svg {
 .map-unavailable {
   display: grid;
   height: 100%;
-  min-height: 600px;
   place-items: center;
   padding: 24px;
   color: var(--muted);
@@ -239,6 +238,8 @@ svg {
 }
 
 .suggestions {
+  max-height: 140px;
+  overflow-y: auto;
   margin: 6px 0 0;
   padding: 0;
   list-style: none;
@@ -881,15 +882,24 @@ dialog li + li {
   font-size: 20px;
 }
 
+#simulateActivity {
+  scroll-margin-top: 76px;
+}
+
+.mobile-simulation-link {
+  display: none;
+}
+
 /* ---------- telas menores ---------- */
 
 @media (max-width: 1080px) {
   .app-shell {
     grid-template-columns: 1fr;
+    grid-template-rows: auto;
     grid-template-areas:
       "map"
-      "charts"
-      "panel";
+      "panel"
+      "charts";
   }
 }
 
@@ -908,9 +918,18 @@ dialog li + li {
     padding: 10px;
   }
 
-  .map-area,
-  .route-map {
-    min-height: 520px;
+  .mobile-simulation-link {
+    display: block;
+  }
+
+  .mobile-simulation-link a {
+    justify-content: center;
+    width: 100%;
+    text-decoration: none;
+  }
+
+  .map-area {
+    height: clamp(330px, 43svh, 380px);
   }
 
   .search-bar {

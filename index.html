@@ -6,7 +6,7 @@
     <title>Fake Strava - Planejador de rotas</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="styles.css?v=2" />
+    <link rel="stylesheet" href="styles.css?v=3" />
   </head>
   <body>
     <header class="topbar">
@@ -70,6 +70,9 @@
       </section>
 
       <aside class="control-panel" aria-label="Controles da rota">
+        <div class="panel-section mobile-simulation-link">
+          <a class="text-button" href="#simulateActivity">Personalizar atividade</a>
+        </div>
         <section class="panel-section">
           <h2>Como desenhar</h2>
           <div class="segmented" role="group" aria-label="Modo de desenho">
@@ -119,7 +122,7 @@
           </div>
         </section>
 
-        <section class="panel-section">
+        <section class="panel-section" id="simulateActivity">
           <h2>Simular atividade</h2>
           <div class="form-grid" aria-describedby="simulationHint">
             <label class="full-span">Tipo de atividade
@@ -194,7 +197,7 @@
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
           Baixar rota GPX
         </button>
-        <p class="fine-print bottom">O arquivo é uma rota planejada, com o traçado e a altimetria, para seguir no relógio ou no celular.</p>
+        <p class="fine-print bottom">Para usar a rota no Strava, baixe o GPX e selecione o arquivo no <a href="https://www.strava.com/maps/create" target="_blank" rel="noopener">criador de rotas do Strava</a>.</p>
       </aside>
 
       <section class="charts-row" aria-label="Perfil de elevação">
@@ -237,6 +240,6 @@
     </dialog>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="script.js?v=2"></script>
+    <script src="script.js?v=3"></script>
   </body>
 </html>

@@ -678,8 +678,18 @@ function renderKmMarkers() {
 }
 
 function fitRoute() {
-  if (route.coords.length >= 2) map.fitBounds(L.latLngBounds(route.coords), { padding: [70, 70], maxZoom: 17 });
-  else if (route.coords.length === 1) map.setView(route.coords[0], 15);
+  if (route.coords.length >= 2) {
+    const paddingLimit = Math.floor(map.getSize().y * 0.42);
+    const top = Math.min(paddingLimit, els.searchForm.offsetHeight + 24);
+    const bottom = Math.min(paddingLimit, $(".map-dock").offsetHeight + 32);
+    map.fitBounds(L.latLngBounds(route.coords), {
+      paddingTopLeft: [64, top],
+      paddingBottomRight: [24, bottom],
+      maxZoom: 17,
+    });
+  } else if (route.coords.length === 1) {
+    map.setView(route.coords[0], 15);
+  }
 }
 
 /* ---------- modos de desenho ---------- */

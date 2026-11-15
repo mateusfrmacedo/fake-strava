@@ -942,3 +942,15 @@ dialog li + li {
     font-size: 12px;
   }
 }
+
+.route-details {
+  margin-top: 12px;
+}
+
+#resetSimulation {
+  margin-top: 10px;
+}
+
+.form-grid input[aria-invalid="true"] {
+  border-color: #b42620;
+}

@@ -6,7 +6,7 @@
     <title>Fake Strava - Planejador de rotas</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="styles.css?v=2" />
   </head>
   <body>
     <header class="topbar">
@@ -120,38 +120,72 @@
         </section>
 
         <section class="panel-section">
-          <h2>Resumo</h2>
+          <h2>Simular atividade</h2>
+          <div class="form-grid" aria-describedby="simulationHint">
+            <label class="full-span">Tipo de atividade
+              <select id="activity">
+                <optgroup label="A pé">
+                  <option value="run">Corrida</option>
+                  <option value="trail">Corrida em trilha</option>
+                  <option value="walk">Caminhada</option>
+                  <option value="hike">Trilha a pé</option>
+                </optgroup>
+                <optgroup label="Pedal">
+                  <option value="ride">Pedal de estrada</option>
+                  <option value="gravel">Gravel</option>
+                  <option value="mtb">Mountain bike</option>
+                  <option value="ebike">Bicicleta elétrica</option>
+                </optgroup>
+                <optgroup label="Na água">
+                  <option value="swim">Natação em águas abertas</option>
+                  <option value="kayak">Caiaque</option>
+                  <option value="row">Remo</option>
+                  <option value="sup">Stand up paddle</option>
+                </optgroup>
+                <optgroup label="Outros">
+                  <option value="skate">Patinação</option>
+                  <option value="wheelchair">Cadeira de rodas</option>
+                  <option value="indoorRun">Corrida em esteira</option>
+                  <option value="indoorRide">Ciclismo indoor</option>
+                </optgroup>
+              </select>
+            </label>
+            <label>Distância (km)<input id="simulationDistance" inputmode="decimal" maxlength="12" /></label>
+            <label>Ganho de elevação (m)<input id="simulationGain" inputmode="decimal" maxlength="12" /></label>
+            <label><span id="paceLabel">Ritmo (min/km)</span><input id="paceInput" inputmode="decimal" maxlength="12" /></label>
+            <label>Tempo em movimento<input id="timeInput" maxlength="12" placeholder="h:mm:ss" /></label>
+            <label>Calorias (kcal)<input id="simulationCalories" inputmode="decimal" maxlength="12" /></label>
+            <label>FC média (bpm)<input id="simulationHeartRate" inputmode="decimal" maxlength="12" /></label>
+            <label>Data<input id="simulationDate" type="date" /></label>
+            <label>Seu peso (kg)<input id="weightInput" type="number" min="30" max="200" step="1" value="70" /></label>
+            <label class="check-row full-span"><input id="climbToggle" type="checkbox" /> Considerar a subida no tempo calculado pelo ritmo</label>
+          </div>
+          <p class="fine-print" id="simulationHint">Use o mapa ou digite a distância. Campos vazios usam os valores automáticos. Edite o ritmo ou o tempo para recalcular o outro. Use 0:30:00 para 30 minutos. A frequência cardíaca automática é um valor simulado.</p>
+          <button class="text-button" id="resetSimulation" type="button">Limpar ajustes da simulação</button>
+        </section>
+
+        <section class="panel-section">
+          <h2>Resumo da simulação</h2>
           <div class="stats-grid">
-            <div><span>Distância</span><strong id="distanceStat">0,00 km</strong></div>
-            <div><span>Tempo estimado</span><strong id="durationStat">0:00</strong></div>
-            <div><span>Subida</span><strong id="gainStat">&mdash;</strong></div>
-            <div><span>Descida</span><strong id="lossStat">&mdash;</strong></div>
-            <div><span>Altitude máx.</span><strong id="maxElevStat">&mdash;</strong></div>
-            <div><span>Altitude mín.</span><strong id="minElevStat">&mdash;</strong></div>
-            <div><span id="avgLabel">Ritmo médio</span><strong id="avgStat">&mdash;</strong></div>
-            <div><span>Calorias (estimativa)</span><strong id="kcalStat">&mdash;</strong></div>
+            <div><span>Distância</span><strong id="distanceStat">—</strong></div>
+            <div><span>Tempo em movimento</span><strong id="durationStat">—</strong></div>
+            <div><span id="avgLabel">Ritmo médio</span><strong id="avgStat">—</strong></div>
+            <div><span>Ganho de elevação</span><strong id="gainStat">—</strong></div>
+            <div><span>Calorias</span><strong id="kcalStat">—</strong></div>
+            <div><span>FC média</span><strong id="heartRateStat">—</strong></div>
+            <div id="simulationDateCard" hidden><span>Data</span><strong id="dateStat"></strong></div>
           </div>
         </section>
 
         <section class="panel-section">
-          <h2>Detalhes</h2>
-          <div class="form-grid">
+          <h2>Dados da rota</h2>
+          <div class="stats-grid">
+            <div><span>Descida</span><strong id="lossStat">&mdash;</strong></div>
+            <div><span>Altitude máx.</span><strong id="maxElevStat">&mdash;</strong></div>
+            <div><span>Altitude mín.</span><strong id="minElevStat">&mdash;</strong></div>
+          </div>
+          <div class="form-grid route-details">
             <label class="full-span">Nome da rota<input id="routeName" value="Minha rota" /></label>
-            <label>Atividade
-              <select id="activity">
-                <option value="run">Corrida</option>
-                <option value="trail">Corrida em trilha</option>
-                <option value="walk">Caminhada</option>
-                <option value="hike">Trilha a pé</option>
-                <option value="ride">Pedal de estrada</option>
-                <option value="gravel">Gravel</option>
-                <option value="mtb">Mountain bike</option>
-              </select>
-            </label>
-            <label><span id="paceLabel">Ritmo (min/km)</span><input id="paceInput" inputmode="decimal" value="5:30" /></label>
-            <label>Tempo-alvo<input id="timeInput" inputmode="numeric" placeholder="h:mm:ss" title="Digite o tempo que você quer fazer e o ritmo é recalculado" /></label>
-            <label>Seu peso (kg)<input id="weightInput" type="number" min="30" max="200" step="1" value="70" /></label>
-            <label class="check-row full-span"><input id="climbToggle" type="checkbox" /> Considerar a subida no tempo estimado</label>
             <label class="full-span">Descrição<textarea id="description" placeholder="Opcional"></textarea></label>
           </div>
         </section>
@@ -173,7 +207,7 @@
         </article>
         <article class="chart-panel">
           <div class="chart-heading">
-            <h2>Parciais por km</h2>
+            <h2>Parciais da rota por km</h2>
             <span id="splitsNote">Aparecem em rotas com 1 km ou mais.</span>
           </div>
           <div class="splits-scroll">
@@ -196,13 +230,13 @@
           <li><strong>Clique em um ponto</strong> para removê-lo. Clicar na largada fecha o circuito.</li>
           <li><strong>Desenho livre</strong>: segure e arraste para riscar o trajeto; ele vira pontos editáveis.</li>
           <li><strong>Gerar circuito</strong> cria sozinho uma volta com a distância desejada.</li>
-          <li>Em <strong>Detalhes</strong>, informe o ritmo ou o tempo-alvo: um recalcula o outro. Tempo, calorias e parciais são estimativas do percurso e não entram no arquivo.</li>
+          <li>Em <strong>Simular atividade</strong>, edite as métricas ou deixe os campos vazios para usar os valores automáticos. O botão de exportação baixa a rota GPX.</li>
           <li>Ctrl+Z desfaz, Ctrl+Shift+Z refaz. O rascunho fica salvo neste navegador.</li>
         </ul>
       </form>
     </dialog>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="script.js"></script>
+    <script src="script.js?v=2"></script>
   </body>
 </html>

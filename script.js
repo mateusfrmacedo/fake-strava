@@ -21,11 +21,20 @@ const SPEED_LABEL = "Velocidade (km/h)";
 const ACTIVITIES = {
   run: { profile: "foot", gpxType: "running", label: PACE_LABEL, kind: "pace", fallback: "5:30", climb: 2.3, kcalPerKgKm: 1.0 },
   trail: { profile: "foot", gpxType: "trail running", label: PACE_LABEL, kind: "pace", fallback: "6:30", climb: 2.6, kcalPerKgKm: 1.1 },
-  walk: { profile: "foot", gpxType: "walking", label: PACE_LABEL, kind: "pace", fallback: "10:00", climb: 6, kcalPerKgKm: 0.6 },
-  hike: { profile: "foot", gpxType: "hiking", label: PACE_LABEL, kind: "pace", fallback: "13:00", climb: 6, kcalPerKgKm: 0.8 },
+  walk: { profile: "foot", gpxType: "walking", label: PACE_LABEL, kind: "pace", fallback: "10:00", climb: 6, kcalPerKgKm: 0.6, heartRate: 105 },
+  hike: { profile: "foot", gpxType: "hiking", label: PACE_LABEL, kind: "pace", fallback: "13:00", climb: 6, kcalPerKgKm: 0.8, heartRate: 120 },
   ride: { profile: "bike", gpxType: "cycling", label: SPEED_LABEL, kind: "speed", fallback: "25", climb: 3 },
   gravel: { profile: "bike", gpxType: "gravel cycling", label: SPEED_LABEL, kind: "speed", fallback: "20", climb: 3.5 },
   mtb: { profile: "bike", gpxType: "mountain biking", label: SPEED_LABEL, kind: "speed", fallback: "15", climb: 4, met: 8.5 },
+  ebike: { profile: "bike", gpxType: "e-bike ride", label: SPEED_LABEL, kind: "speed", fallback: "23", climb: 1, met: 5 },
+  swim: { gpxType: "open water swimming", label: "Ritmo (min/100 m)", kind: "pace", fallback: "2:15", paceDistance: 0.1, met: 7 },
+  kayak: { gpxType: "kayaking", label: SPEED_LABEL, kind: "speed", fallback: "6", met: 5 },
+  row: { gpxType: "rowing", label: SPEED_LABEL, kind: "speed", fallback: "8", met: 7 },
+  sup: { gpxType: "stand up paddleboarding", label: SPEED_LABEL, kind: "speed", fallback: "5", met: 5 },
+  skate: { profile: "foot", gpxType: "inline skating", label: SPEED_LABEL, kind: "speed", fallback: "14", climb: 4, met: 7 },
+  wheelchair: { profile: "foot", gpxType: "wheelchair", label: SPEED_LABEL, kind: "speed", fallback: "8", climb: 5, met: 5 },
+  indoorRun: { gpxType: "treadmill running", label: PACE_LABEL, kind: "pace", fallback: "6:00", kcalPerKgKm: 1 },
+  indoorRide: { gpxType: "indoor cycling", label: SPEED_LABEL, kind: "speed", fallback: "22", met: 7 },
 };
 
 const els = {
@@ -56,6 +65,14 @@ const els = {
   clear: $("#clearButton"),
   chart: $("#elevChart"),
   elevNote: $("#elevNote"),
+};
+const simulationFields = {
+  distance: $("#simulationDistance"),
+  gain: $("#simulationGain"),
+  calories: $("#simulationCalories"),
+  heartRate: $("#simulationHeartRate"),
+  date: $("#simulationDate"),
+  time: els.time,
 };
 const modeButtons = [...document.querySelectorAll("[data-mode]")];
 const shapeButtons = [...document.querySelectorAll("[data-shape]")];
@@ -200,98 +217,122 @@ function activityConfig() {
   return ACTIVITIES[els.activity.value] || ACTIVITIES.run;
 }
 
-/* Aceita "5:30", "5.5" ou "5,5" (min/km) e devolve segundos por km. */
-function secondsPerKm() {
-  const config = activityConfig();
-  const raw = els.pace.value.trim().replace(",", ".");
-  if (config.kind === "speed") {
-    const speed = Number(raw) || Number(config.fallback);
-    return 3600 / Math.max(1, speed);
+const pad2 = (value) => String(value).padStart(2, "0");
+const paceDistance = () => activityConfig().paceDistance || 1;
+
+function readNumber(text) {
+  const raw = text.trim().replace(",", ".");
+  if (!/^(?:\d+(?:\.\d+)?|\.\d+)$/.test(raw)) return null;
+  const value = Number(raw);
+  return Number.isFinite(value) ? value : null;
+}
+
+function readPace(text) {
+  if (activityConfig().kind === "speed") {
+    const speed = readNumber(text);
+    return speed > 0 ? 3600 / speed : null;
   }
-  const match = raw.match(/^(\d{1,2}):(\d{1,2})$/);
-  const minutes = match ? Number(match[1]) + Number(match[2]) / 60 : Number(raw);
-  const safe = Number.isFinite(minutes) && minutes > 0 ? minutes : 5.5;
-  return safe * 60;
+  const match = text.trim().match(/^(\d+):([0-5]?\d)$/);
+  const seconds = match ? Number(match[1]) * 60 + Number(match[2]) : readNumber(text) * 60;
+  return seconds > 0 ? seconds / paceDistance() : null;
+}
+
+function secondsPerKm() {
+  return readPace(paceByActivity[els.activity.value]) || readPace(activityConfig().fallback);
 }
 
 function climbSeconds(gain) {
-  return els.climb.checked && gain ? gain * activityConfig().climb : 0;
+  return els.climb.checked ? (gain || 0) * (activityConfig().climb || 0) : 0;
 }
-
-function routeSeconds() {
-  const totals = elevationTotals();
-  return (route.distance / 1000) * secondsPerKm() + climbSeconds(totals ? totals.gain : 0);
-}
-
-const pad2 = (value) => String(value).padStart(2, "0");
 
 function formatClock(totalSeconds) {
   const seconds = Math.round(totalSeconds);
   return `${Math.floor(seconds / 3600)}:${pad2(Math.floor((seconds % 3600) / 60))}:${pad2(seconds % 60)}`;
 }
 
-/* Aceita "1:05:00", "45:30" (min:s) ou "50" (minutos). */
+/* Aceita horas:minutos:segundos, minutos:segundos ou minutos decimais. */
 function parseClock(text) {
-  const parts = text.trim().replace(",", ".").split(":").map(Number);
-  if (parts.some((n) => !Number.isFinite(n) || n < 0)) return null;
-  let seconds = 0;
-  if (parts.length === 3) seconds = parts[0] * 3600 + parts[1] * 60 + parts[2];
-  else if (parts.length === 2) seconds = parts[0] * 60 + parts[1];
-  else if (parts.length === 1) seconds = parts[0] * 60;
+  const raw = text.trim();
+  if (!raw.includes(":")) {
+    const minutes = readNumber(raw);
+    return minutes > 0 ? minutes * 60 : null;
+  }
+  if (!/^\d+(?::[0-5]?\d){1,2}$/.test(raw)) return null;
+  const seconds = raw.split(":").reduce((total, part) => total * 60 + Number(part), 0);
   return seconds > 0 ? seconds : null;
 }
 
+function formatPaceInput(perKmSeconds) {
+  if (activityConfig().kind === "speed") return (3600 / perKmSeconds).toFixed(1);
+  const total = Math.round(perKmSeconds * paceDistance());
+  return `${Math.floor(total / 60)}:${pad2(total % 60)}`;
+}
+
 function formatAverage(perKmSeconds) {
-  if (activityConfig().kind === "speed") {
-    return `${(3600 / perKmSeconds).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} km/h`;
-  }
-  const total = Math.round(perKmSeconds);
-  return `${Math.floor(total / 60)}:${pad2(total % 60)} /km`;
+  const pace = formatPaceInput(perKmSeconds);
+  if (activityConfig().kind === "speed") return `${pace.replace(".", ",")} km/h`;
+  return `${pace} ${paceDistance() === 1 ? "/km" : "/100 m"}`;
 }
 
-/* Tempo-alvo digitado: recalcula o ritmo (ou a velocidade) necessário. */
-function applyTargetTime() {
-  const target = parseClock(els.time.value);
-  const km = route.distance / 1000;
-  if (!target || km <= 0) {
-    renderStats();
-    return;
-  }
-  const totals = elevationTotals();
-  const flat = target - climbSeconds(totals ? totals.gain : 0);
-  if (flat <= 0) {
-    setStatus("Esse tempo é curto demais para a subida desta rota.", "error");
-    renderStats();
-    return;
-  }
-  const perKm = flat / km;
-  if (activityConfig().kind === "speed") {
-    els.pace.value = (3600 / perKm).toFixed(1);
-  } else {
-    const total = Math.round(perKm);
-    els.pace.value = `${Math.floor(total / 60)}:${pad2(total % 60)}`;
-  }
-  paceByActivity[els.activity.value] = els.pace.value;
-  renderStats();
-  saveDraft();
-}
-
-/* Estimativa aproximada de gasto calórico a partir do peso informado. */
-function estimateCalories(seconds) {
+function estimateCalories(km, seconds, gain) {
   const kg = Number(els.weight.value);
-  const km = route.distance / 1000;
-  if (!(kg > 0) || km <= 0 || seconds <= 0) return null;
+  if (!(kg > 0) || !(seconds > 0)) return null;
   const config = activityConfig();
   if (config.kcalPerKgKm) {
-    const totals = elevationTotals();
-    return kg * km * config.kcalPerKgKm + (totals ? kg * totals.gain * 0.0094 : 0);
+    return km > 0 ? kg * (km * config.kcalPerKgKm + (gain || 0) * 0.0094) : null;
   }
   const speed = km / (seconds / 3600);
   const met = config.met || (speed < 16 ? 4 : speed < 19 ? 6.8 : speed < 22.5 ? 8 : speed < 25.5 ? 10 : speed < 30.5 ? 12 : 15.8);
-  return (met * kg * seconds) / 3600;
+  return met * kg * seconds / 3600;
 }
 
-function renderSplits() {
+function readSimulationField(input, parse) {
+  const value = parse(input.value);
+  input.setAttribute("aria-invalid", String(Boolean(input.value.trim()) && value === null));
+  return value;
+}
+
+function renderSimulation(totals = elevationTotals()) {
+  const activity = activityConfig();
+  const routeKm = route.distance / 1000;
+  const manualDistance = readSimulationField(simulationFields.distance, readNumber);
+  const distance = manualDistance ?? routeKm;
+  const automaticGain = totals?.gain ?? null;
+  const gain = readSimulationField(simulationFields.gain, readNumber) ?? automaticGain;
+  const manualTime = readSimulationField(els.time, parseClock);
+  const basePace = secondsPerKm();
+  const ascentTime = climbSeconds(gain);
+  const automaticTime = distance > 0 ? distance * basePace + ascentTime : null;
+  const seconds = manualTime ?? automaticTime;
+  const average = distance > 0 && seconds > 0 ? seconds / distance : null;
+  const automaticCalories = estimateCalories(distance, seconds, gain);
+  const calories = readSimulationField(simulationFields.calories, readNumber) ?? automaticCalories;
+  const automaticHeartRate = seconds > 0 ? (activity.heartRate || (activity.kind === "speed" ? 135 : 150)) : null;
+  const heartRate = readSimulationField(simulationFields.heartRate, readNumber) ?? automaticHeartRate;
+  const date = simulationFields.date.value;
+
+  simulationFields.distance.placeholder = routeKm > 0 ? routeKm.toFixed(2).replace(".", ",") : "0,00";
+  simulationFields.gain.placeholder = automaticGain === null ? "Automático" : String(Math.round(automaticGain));
+  simulationFields.calories.placeholder = automaticCalories === null ? "Automático" : String(Math.round(automaticCalories));
+  simulationFields.heartRate.placeholder = automaticHeartRate === null ? "Automático" : String(automaticHeartRate);
+  els.time.placeholder = automaticTime === null ? "h:mm:ss" : formatClock(automaticTime);
+  els.pace.placeholder = manualTime && average ? formatPaceInput(average).replace(".", ",") : activity.fallback;
+  els.paceLabel.textContent = !manualTime && els.climb.checked ? `${activity.label} · base` : activity.label;
+  $("#distanceStat").textContent = manualDistance !== null || routeKm > 0 ? formatDistance(distance * 1000) : "—";
+  $("#durationStat").textContent = seconds === null ? "—" : formatClock(seconds);
+  $("#gainStat").textContent = gain === null ? "—" : `${Math.round(gain)} m`;
+  $("#avgLabel").textContent = activity.kind === "speed" ? "Velocidade média" : "Ritmo médio";
+  $("#avgStat").textContent = average ? formatAverage(average) : "—";
+  $("#kcalStat").textContent = calories === null ? "—" : `${Math.round(calories)} kcal`;
+  $("#heartRateStat").textContent = heartRate === null ? "—" : `${Math.round(heartRate)} bpm`;
+  $("#simulationDateCard").hidden = !date;
+  $("#dateStat").textContent = date.split("-").reverse().join("/");
+
+  const adjustedPace = manualTime && distance > 0 ? (manualTime - ascentTime) / distance : 0;
+  return adjustedPace > 0 ? adjustedPace : basePace;
+}
+
+function renderSplits(perKm) {
   const body = $("#splitsBody");
   const note = $("#splitsNote");
   const km = route.distance / 1000;
@@ -301,7 +342,6 @@ function renderSplits() {
     return;
   }
   note.textContent = elevation ? "Estimativa por trecho" : "Subida e descida aparecem quando a altimetria carregar.";
-  const perKm = secondsPerKm();
   const rows = [];
   const count = Math.ceil(km - 1e-9);
   for (let i = 0; i < count; i += 1) {
@@ -386,8 +426,12 @@ function storeLegs(points, legs, profile) {
 }
 
 /* Busca só os trechos que ainda não estão no cache, agrupando vizinhos. */
+function followsStreets() {
+  return els.snap.checked && Boolean(activityConfig().profile);
+}
+
 async function ensureRouting() {
-  if (!els.snap.checked || state.waypoints.length < 2) return;
+  if (!followsStreets() || state.waypoints.length < 2) return;
   const profile = activityConfig().profile;
   const points = state.waypoints.map(copyPoint);
   const missing = (i) => {
@@ -437,7 +481,7 @@ function buildRoute() {
   const points = state.waypoints;
   const coords = [];
   const legOf = [];
-  const snap = els.snap.checked;
+  const snap = followsStreets();
   if (points.length === 1) {
     coords.push(points[0]);
     legOf.push(0);
@@ -707,7 +751,7 @@ async function generateLoop() {
   const target = targetMeters();
   const center = map.getCenter();
   const start = state.waypoints[0] ? copyPoint(state.waypoints[0]) : { lat: center.lat, lng: center.lng };
-  const snap = els.snap.checked;
+  const snap = followsStreets();
   const profile = activityConfig().profile;
   const bearing = Math.random() * Math.PI * 2;
   const direction = Math.random() < 0.5 ? 1 : -1;
@@ -795,7 +839,7 @@ function createShape(kind) {
     state.waypoints = points;
   });
   fitRoute();
-  if (els.snap.checked) setStatus("Forma criada. Seguindo ruas, a distância final pode ficar maior que a desejada.", "loading");
+  if (followsStreets()) setStatus("Forma criada. Seguindo ruas, a distância final pode ficar maior que a desejada.", "loading");
 }
 
 /* ---------- elevação ---------- */
@@ -968,19 +1012,11 @@ function setupChartHover() {
 /* ---------- painel ---------- */
 
 function renderStats() {
-  const seconds = routeSeconds();
   const totals = elevationTotals();
-  const km = route.distance / 1000;
-  const kcal = estimateCalories(seconds);
-  $("#avgLabel").textContent = activityConfig().kind === "speed" ? "Velocidade média" : "Ritmo médio";
-  $("#avgStat").textContent = km > 0 ? formatAverage(seconds / km) : "\u2014";
-  $("#kcalStat").textContent = kcal === null ? "\u2014" : `${Math.round(kcal / 10) * 10} kcal`;
-  if (document.activeElement !== els.time) els.time.value = km > 0 ? formatClock(seconds) : "";
-  renderSplits();
+  const perKm = renderSimulation(totals);
+  const seconds = route.distance / 1000 * perKm + climbSeconds(totals?.gain);
+  renderSplits(perKm);
   const meters = (value) => `${Math.round(value)} m`;
-  $("#distanceStat").textContent = formatDistance(route.distance);
-  $("#durationStat").textContent = formatDuration(seconds);
-  $("#gainStat").textContent = totals ? meters(totals.gain) : "—";
   $("#lossStat").textContent = totals ? meters(totals.loss) : "—";
   $("#maxElevStat").textContent = totals ? meters(totals.max) : "—";
   $("#minElevStat").textContent = totals ? meters(totals.min) : "—";
@@ -1002,8 +1038,11 @@ function updateButtons() {
 
 function applyActivity() {
   const config = activityConfig();
-  els.paceLabel.textContent = config.label;
-  els.pace.value = paceByActivity[els.activity.value] || config.fallback;
+  els.pace.inputMode = config.kind === "speed" ? "decimal" : "text";
+  els.pace.value = parseClock(els.time.value) ? "" : paceByActivity[els.activity.value];
+  els.pace.removeAttribute("aria-invalid");
+  els.snap.disabled = !config.profile;
+  els.climb.disabled = !config.climb;
 }
 
 /* ---------- busca ---------- */
@@ -1199,6 +1238,7 @@ function saveDraft() {
         snap: els.snap.checked,
         activity: els.activity.value,
         pace: paceByActivity,
+        simulation: Object.fromEntries(Object.entries(simulationFields).map(([key, input]) => [key, input.value])),
         weight: els.weight.value,
         climb: els.climb.checked,
         name: els.routeName.value,
@@ -1222,12 +1262,15 @@ function loadDraft() {
         .map(copyPoint);
     }
     if (typeof draft.snap === "boolean") els.snap.checked = draft.snap;
-    if (ACTIVITIES[draft.activity]) els.activity.value = draft.activity;
+    if (Object.hasOwn(ACTIVITIES, draft.activity)) els.activity.value = draft.activity;
     if (draft.pace && typeof draft.pace === "object") {
       Object.keys(paceByActivity).forEach((key) => {
         if (typeof draft.pace[key] === "string") paceByActivity[key] = draft.pace[key];
       });
     }
+    Object.entries(simulationFields).forEach(([key, input]) => {
+      if (typeof draft.simulation?.[key] === "string") input.value = draft.simulation[key];
+    });
     if (Number(draft.weight) > 0) els.weight.value = draft.weight;
     if (typeof draft.climb === "boolean") els.climb.checked = draft.climb;
     if (typeof draft.name === "string" && draft.name) els.routeName.value = draft.name;
@@ -1300,18 +1343,40 @@ function init() {
     applyActivity();
     afterChange();
   });
-  els.pace.addEventListener("input", () => {
-    paceByActivity[els.activity.value] = els.pace.value;
+  function updateSimulation() {
     renderStats();
     saveDraft();
+  }
+
+  els.pace.addEventListener("input", () => {
+    const pace = readSimulationField(els.pace, readPace);
+    if (pace !== null || !els.pace.value.trim()) {
+      paceByActivity[els.activity.value] = els.pace.value;
+      els.time.value = "";
+    }
+    updateSimulation();
   });
-  els.time.addEventListener("change", applyTargetTime);
-  [els.weight, els.climb].forEach((input) =>
-    input.addEventListener("input", () => {
-      renderStats();
-      saveDraft();
-    })
-  );
+  els.time.addEventListener("input", () => {
+    if (parseClock(els.time.value)) {
+      els.pace.value = "";
+      els.pace.removeAttribute("aria-invalid");
+    } else if (!els.time.value.trim()) {
+      applyActivity();
+    }
+    updateSimulation();
+  });
+  Object.values(simulationFields).filter((input) => input !== els.time).forEach((input) => {
+    input.addEventListener("input", updateSimulation);
+  });
+  [els.weight, els.climb].forEach((input) => input.addEventListener("input", updateSimulation));
+  $("#resetSimulation").addEventListener("click", () => {
+    Object.values(simulationFields).forEach((input) => { input.value = ""; });
+    paceByActivity[els.activity.value] = activityConfig().fallback;
+    els.weight.value = els.weight.defaultValue;
+    els.climb.checked = false;
+    applyActivity();
+    updateSimulation();
+  });
   els.targetKm.addEventListener("input", () => {
     setTarget(els.targetKm.value);
     saveDraft();

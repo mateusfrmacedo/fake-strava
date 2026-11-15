@@ -1,6 +1,6 @@
 # Fake Strava
 
-Planejador de rotas no navegador para corrida, caminhada e pedal. Você desenha o percurso no mapa, vê distância, tempo estimado e altimetria, e baixa um arquivo GPX para seguir no relógio ou no celular.
+Planejador de rotas e simulador de atividades no navegador. Você desenha o percurso no mapa, vê distância, tempo estimado e altimetria, e baixa um arquivo GPX para seguir no relógio ou no celular.
 
 [Acesse o Fake Strava](https://mateusfrmacedo.github.io/fake-strava/).
 
@@ -24,9 +24,17 @@ Planejador de rotas no navegador para corrida, caminhada e pedal. Você desenha 
 
 **Informações da rota**
 
-- Distância, tempo estimado pelo ritmo (ou velocidade, no pedal), subida, descida e altitudes máxima e mínima.
+- Distância do traçado, subida, descida, altitudes máxima e mínima e parciais estimadas por km.
 - Perfil de elevação com dados reais de altimetria; passar o cursor no gráfico mostra o ponto correspondente no mapa.
 - Marcadores de quilômetro ao longo do percurso.
+
+**Simular atividade**
+
+- Use a distância e o ganho de elevação do mapa ou preencha esses valores manualmente. Também é possível simular sem traçar uma rota.
+- Edite o ritmo ou a velocidade, o tempo em movimento, as calorias, a frequência cardíaca média e a data. Alterar o ritmo recalcula o tempo em movimento, e informar o tempo recalcula o ritmo médio.
+- Os campos vazios usam valores automáticos quando houver dados suficientes. As calorias são estimadas com base no peso e na atividade. A frequência cardíaca automática é um valor simulado.
+- Escolha entre atividades a pé, ciclismo, esportes aquáticos, patinação, cadeira de rodas e modalidades indoor. Na natação, o ritmo é exibido em min/100 m.
+- Use “Limpar ajustes da simulação” para voltar aos valores automáticos.
 
 **Outros recursos**
 
@@ -36,7 +44,7 @@ Planejador de rotas no navegador para corrida, caminhada e pedal. Você desenha 
 
 ## Exportação
 
-O botão "Baixar rota GPX" gera uma rota planejada: o traçado e a altimetria de cada ponto. O arquivo não contém horários, ritmo nem frequência cardíaca, porque representa um percurso a ser feito, não uma atividade realizada. O tempo aparece apenas como estimativa na tela.
+O botão "Baixar rota GPX" gera uma rota planejada: o traçado e a altimetria de cada ponto. O arquivo não contém horários, ritmo nem frequência cardíaca, porque representa um percurso a ser feito, não uma atividade realizada. As métricas simuladas aparecem no resumo da página.
 
 O GPX pode ser importado como rota ou percurso em aplicativos e relógios que aceitam esse formato.
 

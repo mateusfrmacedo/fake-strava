@@ -133,6 +133,8 @@
             <div><span>Descida</span><strong id="lossStat">&mdash;</strong></div>
             <div><span>Altitude máx.</span><strong id="maxElevStat">&mdash;</strong></div>
             <div><span>Altitude mín.</span><strong id="minElevStat">&mdash;</strong></div>
+            <div><span id="avgLabel">Ritmo médio</span><strong id="avgStat">&mdash;</strong></div>
+            <div><span>Calorias (estimativa)</span><strong id="kcalStat">&mdash;</strong></div>
           </div>
         </section>
 
@@ -143,11 +145,18 @@
             <label>Atividade
               <select id="activity">
                 <option value="run">Corrida</option>
+                <option value="trail">Corrida em trilha</option>
                 <option value="walk">Caminhada</option>
-                <option value="bike">Pedal</option>
+                <option value="hike">Trilha a pé</option>
+                <option value="ride">Pedal de estrada</option>
+                <option value="gravel">Gravel</option>
+                <option value="mtb">Mountain bike</option>
               </select>
             </label>
             <label><span id="paceLabel">Ritmo (min/km)</span><input id="paceInput" inputmode="decimal" value="5:30" /></label>
+            <label>Tempo-alvo<input id="timeInput" inputmode="numeric" placeholder="h:mm:ss" title="Digite o tempo que você quer fazer e o ritmo é recalculado" /></label>
+            <label>Seu peso (kg)<input id="weightInput" type="number" min="30" max="200" step="1" value="70" /></label>
+            <label class="check-row full-span"><input id="climbToggle" type="checkbox" /> Considerar a subida no tempo estimado</label>
             <label class="full-span">Descrição<textarea id="description" placeholder="Opcional"></textarea></label>
           </div>
         </section>
@@ -167,6 +176,18 @@
           </div>
           <svg id="elevChart" viewBox="0 0 1000 230" role="img" aria-label="Gráfico de elevação ao longo da rota"></svg>
         </article>
+        <article class="chart-panel">
+          <div class="chart-heading">
+            <h2>Parciais por km</h2>
+            <span id="splitsNote">Aparecem em rotas com 1 km ou mais.</span>
+          </div>
+          <div class="splits-scroll">
+            <table class="splits">
+              <thead><tr><th>Km</th><th>Subida</th><th>Descida</th><th>Tempo estimado</th></tr></thead>
+              <tbody id="splitsBody"></tbody>
+            </table>
+          </div>
+        </article>
       </section>
     </main>
 
@@ -180,6 +201,7 @@
           <li><strong>Clique em um ponto</strong> para removê-lo. Clicar na largada fecha o circuito.</li>
           <li><strong>Desenho livre</strong>: segure e arraste para riscar o trajeto; ele vira pontos editáveis.</li>
           <li><strong>Gerar circuito</strong> cria sozinho uma volta com a distância desejada.</li>
+          <li>Em <strong>Detalhes</strong>, informe o ritmo ou o tempo-alvo: um recalcula o outro. Tempo, calorias e parciais são estimativas do percurso e não entram no arquivo.</li>
           <li>Ctrl+Z desfaz, Ctrl+Shift+Z refaz. O rascunho fica salvo neste navegador.</li>
         </ul>
       </form>

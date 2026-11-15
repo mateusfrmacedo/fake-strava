@@ -13,10 +13,19 @@ const MAX_HISTORY = 100;
 const MAX_FREEHAND_POINTS = 40;
 const MAX_IMPORT_POINTS = 60;
 
+/* climb: segundos a mais por metro de subida (quando a opção está ligada).
+   kcalPerKgKm: gasto aproximado a pé; met: gasto fixo; sem os dois, o MET do
+   pedal vem da velocidade média. */
+const PACE_LABEL = "Ritmo (min/km)";
+const SPEED_LABEL = "Velocidade (km/h)";
 const ACTIVITIES = {
-  run: { profile: "foot", gpxType: "running", label: "Ritmo (min/km)", kind: "pace", fallback: "5:30" },
-  walk: { profile: "foot", gpxType: "walking", label: "Ritmo (min/km)", kind: "pace", fallback: "10:00" },
-  bike: { profile: "bike", gpxType: "cycling", label: "Velocidade (km/h)", kind: "speed", fallback: "22" },
+  run: { profile: "foot", gpxType: "running", label: PACE_LABEL, kind: "pace", fallback: "5:30", climb: 2.3, kcalPerKgKm: 1.0 },
+  trail: { profile: "foot", gpxType: "trail running", label: PACE_LABEL, kind: "pace", fallback: "6:30", climb: 2.6, kcalPerKgKm: 1.1 },
+  walk: { profile: "foot", gpxType: "walking", label: PACE_LABEL, kind: "pace", fallback: "10:00", climb: 6, kcalPerKgKm: 0.6 },
+  hike: { profile: "foot", gpxType: "hiking", label: PACE_LABEL, kind: "pace", fallback: "13:00", climb: 6, kcalPerKgKm: 0.8 },
+  ride: { profile: "bike", gpxType: "cycling", label: SPEED_LABEL, kind: "speed", fallback: "25", climb: 3 },
+  gravel: { profile: "bike", gpxType: "gravel cycling", label: SPEED_LABEL, kind: "speed", fallback: "20", climb: 3.5 },
+  mtb: { profile: "bike", gpxType: "mountain biking", label: SPEED_LABEL, kind: "speed", fallback: "15", climb: 4, met: 8.5 },
 };
 
 const els = {
@@ -32,6 +41,9 @@ const els = {
   routeName: $("#routeName"),
   activity: $("#activity"),
   pace: $("#paceInput"),
+  time: $("#timeInput"),
+  weight: $("#weightInput"),
+  climb: $("#climbToggle"),
   paceLabel: $("#paceLabel"),
   description: $("#description"),
   download: $("#downloadButton"),
@@ -49,7 +61,7 @@ const modeButtons = [...document.querySelectorAll("[data-mode]")];
 const shapeButtons = [...document.querySelectorAll("[data-shape]")];
 
 const state = { waypoints: [], mode: "click" };
-const paceByActivity = { run: "5:30", walk: "10:00", bike: "22" };
+const paceByActivity = Object.fromEntries(Object.entries(ACTIVITIES).map(([key, config]) => [key, config.fallback]));
 const undoStack = [];
 const redoStack = [];
 const legCache = new Map();
@@ -200,6 +212,124 @@ function secondsPerKm() {
   const minutes = match ? Number(match[1]) + Number(match[2]) / 60 : Number(raw);
   const safe = Number.isFinite(minutes) && minutes > 0 ? minutes : 5.5;
   return safe * 60;
+}
+
+function climbSeconds(gain) {
+  return els.climb.checked && gain ? gain * activityConfig().climb : 0;
+}
+
+function routeSeconds() {
+  const totals = elevationTotals();
+  return (route.distance / 1000) * secondsPerKm() + climbSeconds(totals ? totals.gain : 0);
+}
+
+const pad2 = (value) => String(value).padStart(2, "0");
+
+function formatClock(totalSeconds) {
+  const seconds = Math.round(totalSeconds);
+  return `${Math.floor(seconds / 3600)}:${pad2(Math.floor((seconds % 3600) / 60))}:${pad2(seconds % 60)}`;
+}
+
+/* Aceita "1:05:00", "45:30" (min:s) ou "50" (minutos). */
+function parseClock(text) {
+  const parts = text.trim().replace(",", ".").split(":").map(Number);
+  if (parts.some((n) => !Number.isFinite(n) || n < 0)) return null;
+  let seconds = 0;
+  if (parts.length === 3) seconds = parts[0] * 3600 + parts[1] * 60 + parts[2];
+  else if (parts.length === 2) seconds = parts[0] * 60 + parts[1];
+  else if (parts.length === 1) seconds = parts[0] * 60;
+  return seconds > 0 ? seconds : null;
+}
+
+function formatAverage(perKmSeconds) {
+  if (activityConfig().kind === "speed") {
+    return `${(3600 / perKmSeconds).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} km/h`;
+  }
+  const total = Math.round(perKmSeconds);
+  return `${Math.floor(total / 60)}:${pad2(total % 60)} /km`;
+}
+
+/* Tempo-alvo digitado: recalcula o ritmo (ou a velocidade) necessário. */
+function applyTargetTime() {
+  const target = parseClock(els.time.value);
+  const km = route.distance / 1000;
+  if (!target || km <= 0) {
+    renderStats();
+    return;
+  }
+  const totals = elevationTotals();
+  const flat = target - climbSeconds(totals ? totals.gain : 0);
+  if (flat <= 0) {
+    setStatus("Esse tempo é curto demais para a subida desta rota.", "error");
+    renderStats();
+    return;
+  }
+  const perKm = flat / km;
+  if (activityConfig().kind === "speed") {
+    els.pace.value = (3600 / perKm).toFixed(1);
+  } else {
+    const total = Math.round(perKm);
+    els.pace.value = `${Math.floor(total / 60)}:${pad2(total % 60)}`;
+  }
+  paceByActivity[els.activity.value] = els.pace.value;
+  renderStats();
+  saveDraft();
+}
+
+/* Estimativa aproximada de gasto calórico a partir do peso informado. */
+function estimateCalories(seconds) {
+  const kg = Number(els.weight.value);
+  const km = route.distance / 1000;
+  if (!(kg > 0) || km <= 0 || seconds <= 0) return null;
+  const config = activityConfig();
+  if (config.kcalPerKgKm) {
+    const totals = elevationTotals();
+    return kg * km * config.kcalPerKgKm + (totals ? kg * totals.gain * 0.0094 : 0);
+  }
+  const speed = km / (seconds / 3600);
+  const met = config.met || (speed < 16 ? 4 : speed < 19 ? 6.8 : speed < 22.5 ? 8 : speed < 25.5 ? 10 : speed < 30.5 ? 12 : 15.8);
+  return (met * kg * seconds) / 3600;
+}
+
+function renderSplits() {
+  const body = $("#splitsBody");
+  const note = $("#splitsNote");
+  const km = route.distance / 1000;
+  if (km < 1) {
+    body.innerHTML = "";
+    note.textContent = "Aparecem em rotas com 1 km ou mais.";
+    return;
+  }
+  note.textContent = elevation ? "Estimativa por trecho" : "Subida e descida aparecem quando a altimetria carregar.";
+  const perKm = secondsPerKm();
+  const rows = [];
+  const count = Math.ceil(km - 1e-9);
+  for (let i = 0; i < count; i += 1) {
+    const from = i * 1000;
+    const to = Math.min(route.distance, from + 1000);
+    let gain = null;
+    let loss = null;
+    if (elevation) {
+      gain = 0;
+      loss = 0;
+      let previous = elevationAt(from);
+      for (let step = 1; step <= 10; step += 1) {
+        const current = elevationAt(from + ((to - from) * step) / 10);
+        if (current > previous) gain += current - previous;
+        else loss += previous - current;
+        previous = current;
+      }
+    }
+    const seconds = ((to - from) / 1000) * perKm + climbSeconds(gain || 0);
+    const partial = to - from < 995;
+    const label = partial
+      ? `${i + 1} (${((to - from) / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} km)`
+      : `${i + 1}`;
+    rows.push(`<tr><td>${label}</td><td>${gain === null ? "\u2014" : `+${Math.round(gain)} m`}</td><td>${
+      loss === null ? "\u2014" : `\u2212${Math.round(loss)} m`
+    }</td><td>${formatDuration(seconds)}</td></tr>`);
+  }
+  body.innerHTML = rows.join("");
 }
 
 /* ---------- roteamento ---------- */
@@ -838,8 +968,15 @@ function setupChartHover() {
 /* ---------- painel ---------- */
 
 function renderStats() {
-  const seconds = (route.distance / 1000) * secondsPerKm();
+  const seconds = routeSeconds();
   const totals = elevationTotals();
+  const km = route.distance / 1000;
+  const kcal = estimateCalories(seconds);
+  $("#avgLabel").textContent = activityConfig().kind === "speed" ? "Velocidade média" : "Ritmo médio";
+  $("#avgStat").textContent = km > 0 ? formatAverage(seconds / km) : "\u2014";
+  $("#kcalStat").textContent = kcal === null ? "\u2014" : `${Math.round(kcal / 10) * 10} kcal`;
+  if (document.activeElement !== els.time) els.time.value = km > 0 ? formatClock(seconds) : "";
+  renderSplits();
   const meters = (value) => `${Math.round(value)} m`;
   $("#distanceStat").textContent = formatDistance(route.distance);
   $("#durationStat").textContent = formatDuration(seconds);
@@ -1062,6 +1199,8 @@ function saveDraft() {
         snap: els.snap.checked,
         activity: els.activity.value,
         pace: paceByActivity,
+        weight: els.weight.value,
+        climb: els.climb.checked,
         name: els.routeName.value,
         description: els.description.value,
         target: els.targetKm.value,
@@ -1089,6 +1228,8 @@ function loadDraft() {
         if (typeof draft.pace[key] === "string") paceByActivity[key] = draft.pace[key];
       });
     }
+    if (Number(draft.weight) > 0) els.weight.value = draft.weight;
+    if (typeof draft.climb === "boolean") els.climb.checked = draft.climb;
     if (typeof draft.name === "string" && draft.name) els.routeName.value = draft.name;
     if (typeof draft.description === "string") els.description.value = draft.description;
     if (draft.target) setTarget(draft.target);
@@ -1164,6 +1305,13 @@ function init() {
     renderStats();
     saveDraft();
   });
+  els.time.addEventListener("change", applyTargetTime);
+  [els.weight, els.climb].forEach((input) =>
+    input.addEventListener("input", () => {
+      renderStats();
+      saveDraft();
+    })
+  );
   els.targetKm.addEventListener("input", () => {
     setTarget(els.targetKm.value);
     saveDraft();

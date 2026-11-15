@@ -679,6 +679,24 @@ label.text-button:focus-within {
   grid-column: 1 / -1;
 }
 
+.form-grid .check-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: #33342f;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.form-grid .check-row input {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--accent);
+}
+
 .download-button {
   display: flex;
   width: calc(100% - 28px);
@@ -710,6 +728,43 @@ label.text-button:focus-within {
 
 .charts-row {
   grid-area: charts;
+  display: grid;
+  gap: 16px;
+  align-content: start;
+}
+
+.splits-scroll {
+  max-height: 280px;
+  margin-top: 10px;
+  overflow-y: auto;
+}
+
+.splits {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.splits th,
+.splits td {
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--border);
+  text-align: right;
+}
+
+.splits th:first-child,
+.splits td:first-child {
+  text-align: left;
+}
+
+.splits th {
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .chart-panel {

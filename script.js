@@ -159,6 +159,7 @@ let draggingMarker = false;
 let busy = false;
 let pickingStart = false;
 let routeRevision = 0;
+let followStreetsByDefault = els.snap.defaultChecked;
 
 /* ---------- geometria ---------- */
 
@@ -647,6 +648,7 @@ function pushHistory() {
 }
 
 function afterChange() {
+  if (!state.waypoints.length) els.snap.checked = followStreetsByDefault;
   routeRevision += 1;
   failedLegs.clear();
   refresh();
@@ -914,6 +916,7 @@ function chooseStart(active) {
 function handleStartPoint(latlng) {
   chooseStart(false);
   commit(() => {
+    els.snap.checked = followStreetsByDefault;
     state.waypoints = [copyPoint(latlng)];
     state.splits = {};
   });
@@ -928,8 +931,9 @@ async function generateLoop() {
   const revision = routeRevision;
   const center = map.getCenter();
   const start = state.waypoints[0] ? copyPoint(state.waypoints[0]) : { lat: center.lat, lng: center.lng };
-  const snap = followsStreets();
   const profile = activityConfig().profile;
+  const snapPreference = followStreetsByDefault;
+  const snap = snapPreference && Boolean(profile);
   let bearing = Math.random() * Math.PI * 2;
   const direction = Math.random() < 0.5 ? 1 : -1;
   const count = snap ? 4 : 24;
@@ -987,6 +991,7 @@ async function generateLoop() {
     }
     if (best.legs) storeLegs(best.points, best.legs, profile);
     commit(() => {
+      els.snap.checked = snapPreference;
       state.waypoints = best.points;
       state.splits = {};
     });
@@ -1660,6 +1665,7 @@ function saveDraft() {
       JSON.stringify({
         waypoints: state.waypoints,
         snap: els.snap.checked,
+        followStreetsByDefault,
         splits: state.splits,
         activity: els.activity.value,
         customActivity: els.customActivity.value,
@@ -1691,7 +1697,8 @@ function loadDraft() {
       if (!/^\d+$/.test(index) || !["pace", "time"].includes(entry?.field) || typeof entry.value !== "string") continue;
       state.splits[index] = entry;
     }
-    if (typeof draft.snap === "boolean") els.snap.checked = draft.snap;
+    if (typeof draft.followStreetsByDefault === "boolean") followStreetsByDefault = draft.followStreetsByDefault;
+    els.snap.checked = state.waypoints.length && typeof draft.snap === "boolean" ? draft.snap : followStreetsByDefault;
     if (typeof draft.customActivity === "string") els.customActivity.value = draft.customActivity;
     if (Object.hasOwn(ACTIVITIES, draft.activity)) els.activity.value = draft.activity;
     if (draft.pace && typeof draft.pace === "object") {
@@ -1816,6 +1823,7 @@ function init() {
   });
 
   els.snap.addEventListener("change", () => {
+    followStreetsByDefault = els.snap.checked;
     afterChange();
     if (!els.snap.checked) setStatus("Linhas retas entre os pontos.");
   });
